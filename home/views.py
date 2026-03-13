@@ -4,7 +4,14 @@ from goods.models import Product
 
 
 def index(request):
-    return render(request, 'index.html')
+    # Получаем все товары.
+    product = Product.objects.all()
+
+    context = {
+        'title': 'Home - Главная страница',
+        'products': product,            # Передаем список в шаблон.
+    }
+    return render(request, 'index.html', context)
 
 
 def about(request):

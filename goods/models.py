@@ -21,7 +21,7 @@ class Category(models.Model):
 class Product(models.Model):
     
     name = models.CharField(max_length=200, unique=True, verbose_name=_('Название'))
-    slug = models.SlugField(max_length=200, null=True, verbose_name=_('Слаг'))
+    slug = models.SlugField(max_length=200, unique=True, null=True, verbose_name=_('Слаг'))
     category = models.ForeignKey(Category, on_delete=models.CASCADE, verbose_name=_('Категория'))
     description = models.TextField(max_length=500, unique=True, verbose_name=_('Описание'))
     price = models.DecimalField(default=0.00, max_digits=9, decimal_places=2, verbose_name=_('Цена'))
