@@ -8,9 +8,7 @@ app_name = 'goods'
 
 urlpatterns = [
     path("", views.shop, name="shop"),
-    path("product/<slug:slug>", views.shop_single, name="shop_single"),
-    # path("product/<int:product_id>", views.shop_single, name="shop_single"),
-    # path("shop-single/", views.shop_single, name="shop_single"),
+    path("product/<slug:slug>", views.shop_single, name="shop_single"),         # Добавил slug для удобства чтения в адресной сроке вместо product/2
     path("cart/", views.cart, name="cart"),
     path("checkout/", views.checkout, name="checkout"),
     path("thankyou/", views.thankyou, name="thankyou"),

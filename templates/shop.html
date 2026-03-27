@@ -38,44 +38,80 @@
           </div>
         </div>
 
+
+
         <div class="row">
           {% for product in products %}
-            <div class="col-sm-6 col-lg-4 text-center item mb-4">
-              {% if product.discount %}
-                <span class="tag">Sale</span>
-              {% endif %}
+            <div class="col-sm-6 col-lg-4 mb-5">
+              <div class="product-card"> <!-- Добавили твой главный класс-контейнер -->
+                
+                {% if product.discount %}
+                  <span class="tag">Sale</span>
+                {% endif %}
 
+                <!-- 1. Картинка в твоем спец-контейнере с зумом -->
+                <a href="{% url 'goods:shop_single' product.slug %}" class="product-image-link">     
+                  {% if product.image %}
+                    <img src="{{ product.image.url }}" alt="{{ product.name }}" class="product-img">
+                  {% else %}
+                    <img src="{% static 'images/product_02.png' %}" alt="Image" class="product-img">
+                  {% endif %}
+                </a>
 
-              <a href="{% url 'goods:shop_single' product.slug %}">     
-              {% if product.image %}
-                <img src="{{ product.image.url }}" alt="{{ product.name }}" style="max-width: 100%;">
-              {% else %}
-                <img src={% static "images/product_02.png" %} alt="Image" style="max-width: 100%;">
-              {% endif %}
-              </a>
+                <!-- 2. Заголовок с твоим классом для выравнивания высоты -->
+                <h3 class="product-title">
+                  <a href="{% url 'goods:shop_single' product.slug %}">{{ product.name }}</a>
+                </h3>
 
+                <!-- 3. Цена с твоим классом -->
+                <p class="product-price">{{ product.price }} руб.</p>
 
-              <h3 class="text-dark">
-                <a href="{% url 'goods:shop_single' product.slug %}">{{ product.name }}</a>
-              </h3>
+                <!-- 4. Кнопка «Купить», которой у тебя не было в магазине -->
+                <a href="#" class="btn-buy">Купить</a>
 
-              <p class="price">${{ product.price }}</p>
-
+              </div>
             </div>
           {% endfor %}
         </div>
+
+
+
 
         <div class="row mt-5">
           <div class="col-md-12 text-center">
             <div class="site-block-27">
               <ul>
-                <li><a href="#">&lt;</a></li>
-                <li class="active"><span>1</span></li>
-                <li><a href="#">2</a></li>
-                <li><a href="#">3</a></li>
+                {# Кнопка "Назад" #}
+                {# Если текущий номер страницы 1 > то дивигаемся назад #}
+                {% if products.has_previous  %}   
+                  <li><a href="?page={{ products.previous_page_number}}">&lt;</a></li>
+                {% else %}
+                  <li class="disabled"><span>&lt;</span></li>  
+                {% endif %}
+                
+                {# Номера страниц #}
+                {% for num in products.paginator.page_range %}
+                {# Если текущая страница то подсвечиваем кнопку #}
+                  {% if products.number == num %}
+                    <li class="active"><span>{{ num }}</span></li>
+                    
+                  {% elif num > products.number|add:'-3' and num < products.number|add:'3' %}
+                    <li><a href="?page={{ num }}">{{ num }}</a></li>
+                  {% endif %}
+                {% endfor %}
+                
+                {# Кнопка "Вперед" #}
+                {% if products.has_next %}
+                  <li><a href="?page={{ products.next_page_number }}">&gt;</a></li>
+                {% else %}
+                  <li class="disabled"><span>&gt;</span></li>
+                {% endif %}
+
+
+                {% comment %} <li><a href="#">3</a></li>
                 <li><a href="#">4</a></li>
                 <li><a href="#">5</a></li>
-                <li><a href="#">&gt;</a></li>
+                <li><a href="#">&gt;</a></li> {% endcomment %}
               </ul>
             </div>
           </div>

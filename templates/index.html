@@ -71,15 +71,13 @@
 
 
 
-
-
         <div class="row align-items-stretch">
             {% for product in products %}
             <div class="col-sm-6 col-lg-4 mb-5 d-flex justify-content-center">
                 <!-- Вся логика оформления теперь внутри класса product-card -->
                 <div class="product-card">
                     
-                    <a href="#" class="product-image-link mb-3">
+                    <a href="{% url 'goods:shop_single' product.slug %}" class="product-image-link mb-3">
                         <img src="{{ product.image.url }}" alt="{{ product.name }}" class="product-img">
                     </a>
 
@@ -102,7 +100,7 @@
         
         <div class="row mt-5">
           <div class="col-12 text-center">
-            <a href="shop.html" class="btn btn-primary px-4 py-3">View All Products</a>
+            <a href="{% url "goods:shop" %}" class="btn btn-primary px-4 py-3">View All Products</a>
           </div>
         </div>
       </div>
