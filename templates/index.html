@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load  thumbnail %}
 
 {% block title %}Главная — Pharma{% endblock title %}
 
@@ -73,12 +74,12 @@
 
         <div class="row align-items-stretch">
             {% for product in products %}
-            <div class="col-sm-6 col-lg-4 mb-5 d-flex justify-content-center">
+            <div class="col-sm-6 col-lg-4 mb-5">
                 <!-- Вся логика оформления теперь внутри класса product-card -->
                 <div class="product-card">
                     
                     <a href="{% url 'goods:shop_single' product.slug %}" class="product-image-link mb-3">
-                        <img src="{{ product.image.url }}" alt="{{ product.name }}" class="product-img">
+                        <img src="{% thumbnail product.image 'catalog_thumbnail' %}" alt="{{ product.name }}" class="product-img">
                     </a>
 
                     <h3 class="product-title">

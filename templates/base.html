@@ -21,7 +21,7 @@
   
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
 
-  <link rel="stylesheet" href="{% static 'css/home/style.css' %}">
+  {% comment %} <link rel="stylesheet" href="{% static 'css/home/style.css' %}"> {% endcomment %}
 
 </head>
 
@@ -43,14 +43,14 @@
         <div class="d-flex align-items-center justify-content-between">
           <div class="logo">
             <div class="site-logo">
-              <a href='{% url "home:index" %}' class="js-logo-clone">Pharma</a>
+              <a href="{% url 'home:index' %}" class="js-logo-clone">Pharma</a>
             </div>
           </div>
           <div class="main-nav d-none d-lg-block">
             <nav class="site-navigation text-right text-md-center" role="navigation">
               <ul class="site-menu js-clone-nav d-none d-lg-block">
-                <li class="active"><a href='{% url "home:index" %}'>Home</a></li>
-                <li><a href='{% url "goods:shop" %}'>Store</a></li>
+                <li class="active"><a href="{% url 'home:index' %}">Home</a></li>
+                <li><a href="{% url 'goods:shop' %}">Store</a></li>
                 <li class="has-children">
                   <a href="#">Dropdown</a>
                   <ul class="dropdown">
@@ -76,7 +76,7 @@
           </div>
           <div class="icons">
             <a href="#" class="icons-btn d-inline-block js-search-open"><span class="icon-search"></span></a>
-            <a href='{% url "goods:cart" %}' class="icons-btn d-inline-block bag">
+            <a href="{% url 'goods:cart' %}" class="icons-btn d-inline-block bag">
               <span class="icon-shopping-bag"></span>
               <span class="number">2</span>
             </a>

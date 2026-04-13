@@ -42,9 +42,59 @@ INSTALLED_APPS = [
     'home',
     'goods',
 
+
+
     'django_cleanup.apps.CleanupConfig',
+    'django_extensions',
+    'easy_thumbnails',
+    
+
     
 ]
+
+
+# Настройка, чтобы миниатюры (image) создавались правильно.
+THUMBNAIL_PROCESSORS = (
+    'easy_thumbnails.processors.colorspace',
+    'easy_thumbnails.processors.autocrop',
+    'easy_thumbnails.processors.scale_and_crop',
+    'easy_thumbnails.processors.filters',
+)
+
+
+THUMBNAIL_QUALITY = 95  # Повышаем качество сжатия картинки
+# Указываем подпапку для миниатюр, чтобы не было "мусора" в корне media
+THUMBNAIL_SUBDIR = 'versions'
+
+
+# Задайте «алиасы» (пресеты) в настройках для масштабирования image.
+THUMBNAIL_ALIASES = {
+    '': {
+        'catalog_thumbnail': {
+            'size': (500, 500), 
+            'crop': False,          # ВАЖНО: Выключаем обрезку!
+            'upscale': True,        # Растянуть мелкие до 180px
+            'autocrop': True,       # УДАЛЯЕТ лишние белые поля вокруг банкир
+            'quality': 95,          # Высокое качество сжатия
+        },
+        'detail_thumbnail': {
+        'size': (700, 800),     #/* Увеличиваем размер для четкости на странице товара */
+        'crop': False,          #/* Банка видна целиком */
+        'upscale': True,        #/* Растягиваем мелкие исходники до 700px */
+        'autocrop': True,       #/* КЛЮЧЕВАЯ СТРОКА: режет лишний фон в самом файле */
+        'quality': 95           #/* Высокое качество картинки */
+
+        },
+
+    },
+}
+
+
+
+
+
+
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -55,6 +105,9 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+
+
 
 ROOT_URLCONF = 'config.urls'
 
@@ -80,9 +133,17 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.sqlite3',
+    #     'NAME': BASE_DIR / 'db.sqlite3',
+
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'supplements_store',  # В точности как в pgAdmin
+        'USER': 'postgres',
+        'PASSWORD': 'root',
+        'HOST': '127.0.0.1',
+        'PORT': '5432',
     }
 }
 

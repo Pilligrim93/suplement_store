@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
+{% load thumbnail %}
+{% load tag_utils %}
 
 
 {% block title %}Каталог — Pharma{% endblock title %}
@@ -27,14 +29,15 @@
             <h3 class="mb-3 h6 text-uppercase text-black d-block">Filter by Reference</h3>
             <button type="button" class="btn btn-secondary btn-md dropdown-toggle px-4" id="dropdownMenuReference"
               data-toggle="dropdown">Reference</button>
-            <div class="dropdown-menu" aria-labelledby="dropdownMenuReference">
-              <a class="dropdown-item" href="#">Relevance</a>
-              <a class="dropdown-item" href="#">Name, A to Z</a>
-              <a class="dropdown-item" href="#">Name, Z to A</a>
-              <div class="dropdown-divider"></div>
-              <a class="dropdown-item" href="#">Price, low to high</a>
-              <a class="dropdown-item" href="#">Price, high to low</a>
-            </div>
+              <div class="dropdown-menu" aria-labelledby="dropdownMenuReference">
+                {# Используем цикл, чтобы код был коротким и понятным #}
+                {% for sort_val, sort_label in sort_options.items %}
+                {# Тег change_params сам склеит текущий поиск, цену и новую сортировку #}
+                  <a class="dropdown-item" href="?{% change_params sort=sort_val page=1 %}">    
+                    {{ sort_label }}
+                  </a>
+                {% endfor %}
+              </div>
           </div>
         </div>
 
@@ -52,7 +55,8 @@
                 <!-- 1. Картинка в твоем спец-контейнере с зумом -->
                 <a href="{% url 'goods:shop_single' product.slug %}" class="product-image-link">     
                   {% if product.image %}
-                    <img src="{{ product.image.url }}" alt="{{ product.name }}" class="product-img">
+                    {# Вместо product.image.url используем тег с алиасом #}
+                    <img src="{% thumbnail  product.image 'catalog_thumbnail' %}" alt="{{ product.name }}" class="product-img">
                   {% else %}
                     <img src="{% static 'images/product_02.png' %}" alt="Image" class="product-img">
                   {% endif %}
@@ -84,7 +88,7 @@
                 {# Кнопка "Назад" #}
                 {# Если текущий номер страницы 1 > то дивигаемся назад #}
                 {% if products.has_previous  %}   
-                  <li><a href="?page={{ products.previous_page_number}}">&lt;</a></li>
+                  <li><a href="?{% change_params page=products.previous_page_number %}">&lt;</a></li>
                 {% else %}
                   <li class="disabled"><span>&lt;</span></li>  
                 {% endif %}
@@ -96,13 +100,13 @@
                     <li class="active"><span>{{ num }}</span></li>
                     
                   {% elif num > products.number|add:'-3' and num < products.number|add:'3' %}
-                    <li><a href="?page={{ num }}">{{ num }}</a></li>
+                    <li><a href="?{% change_params page=num %}">{{ num }}</a></li>
                   {% endif %}
                 {% endfor %}
                 
                 {# Кнопка "Вперед" #}
                 {% if products.has_next %}
-                  <li><a href="?page={{ products.next_page_number }}">&gt;</a></li>
+                  <li><a href="?{% change_params page=products.next_page_number %}">&gt;</a></li>
                 {% else %}
                   <li class="disabled"><span>&gt;</span></li>
                 {% endif %}

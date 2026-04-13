@@ -1,5 +1,3 @@
-from unicodedata import category
-
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, render
@@ -7,56 +5,77 @@ from django.shortcuts import get_object_or_404, render
 from goods.models import Product
 
 
-
 def shop(request):
-    # Получаем текст из инпута поиска
-    query = request.GET.get('q')   
-    
+
+    # --- 1. ПРИЕМ ДАННЫХ ИЗ URL ---
+    # request.GET — это словарь со всеми параметрами после знака "?" в ссылке.
+    query = request.GET.get('q')           # Текст поиска (из инпута q)
+    min_p = request.GET.get('min_price')   # Минимальная цена (из JS-слайдера)
+    max_p = request.GET.get('max_price')   # Максимальная цена (из JS-слайдера)
+    sort_key = request.GET.get('sort')     # Код сортировки (из ссылок в выпадающем списке)
+
+    # --- 2. БАЗОВЫЙ ЗАПРОС ---
+    # Начинаем строить запрос к БД. Сразу отсекаем товары, которых нет на складе.
+    products = Product.objects.filter(quantity__gt=0)
+
+    # --- 3. ЛОГИКА ПОИСКА ---
     if query:
-        # Фильтруем по имени, описанию или категории. 
-        # icontains делает поиск регистронезависимым.
-        products = Product.objects.filter(
+        # Если пользователь что-то ввел, ищем это слово в трех полях (ИЛИ через Q)
+        # distinct() нужен, чтобы товар не дублировался, если слово нашлось сразу в двух местах
+        products = products.filter(
             Q(name__icontains=query) | 
             Q(description__icontains=query) | 
             Q(category__name__icontains=query)
-        ).order_by('id').distinct()               # Обязательно для стабильной пагинации
+        ).distinct()
+
+    # --- 4. ГИБКАЯ ФИЛЬТРАЦИЯ ПО ЦЕНЕ ---
+    # Создаем временный словарь для условий, чтобы не писать кучу if/else в фильтре
+    price_filters = {}
+    if min_p: 
+        price_filters['price__gte'] = min_p  # gte = "больше или равно"
+    if max_p: 
+        price_filters['price__lte'] = max_p  # lte = "меньше или равно"
     
-    else:
-        # Если поиска нет, берем все товары, также сортируя их.
-        products = Product.objects.all().order_by('id')
+    # Распаковываем словарь (**). Если min_p и max_p есть, получится .filter(price__gte=..., price__lte=...)
+    products = products.filter(**price_filters)
 
-    # Создаем пагинатор: берем наш QuerySet и режем по 6 объектов
-    paginator = Paginator(products, 6)
-
-    # Вытаскиваем номер страницы из URL (например, ?page=2)
-    page_number = request.GET.get("page")
-    # get_page — безопасный метод: вернет 1-ю страницу, если в page_number прилетит мусор
-    page_obj = paginator.get_page(page_number)
-
-    context = {
-        'products': page_obj        # Оставляем имя 'products', чтобы не переделывать цикл в шаблоне
+    # --- 5. УПРАВЛЕНИЕ СОРТИРОВКОЙ ---
+    # Список для HTML: ключ (для URL) и красивое название (для пользователя)
+    sort_options = {
+        'id': 'Relevance',
+        'name_asc': 'Name, A to Z',
+        'name_desc': 'Name, Z to A',
+        'price_low': 'Price, low to high',
+        'price_high': 'Price, high to low',
     }
     
-    return render(request, "shop.html", context)
-
-
-    # # Получаем текст из инпута поиска
-    # query = request.GET.get('q')   
-    # if query:
-    #     # Фильтруем: имя содержит query ИЛИ описание содержит query
-    #     products = Product.objects.filter(
-    #         Q(name__icontains=query) | Q(description__icontains=query) | 
-    #         Q(category__name__icontains=query)
-    #     )
+    # "Переводчик" для БД: превращаем ключ из URL в реальное поле таблицы
+    # Минус перед полем (например, '-price') означает сортировку по убыванию
+    sort_map = {
+        'name_asc': 'name', 
+        'name_desc': '-name',
+        'price_low': 'price', 
+        'price_high': '-price',
+    }
     
-    # else:
-    #     products = Product.objects.all()
+    # Берем значение из карты. Если в URL пришел мусор или пусто — по умолчанию ставим 'id'
+    order_field = sort_map.get(sort_key, 'id')
+    products = products.order_by(order_field)
 
+    # --- 6. ПАГИНАЦИЯ ---
+    # Режем финальный отфильтрованный список на страницы по 12 товаров
+    paginator = Paginator(products, 12)
+    # Получаем номер текущей страницы и берем нужные товары
+    page_obj = paginator.get_page(request.GET.get("page"))
 
-    # context = {
-    #     'products': products
-    # }
-    # return render(request, "shop.html", context)
+    # --- 7. ОТПРАВКА В ШАБЛОН ---
+    return render(request, "shop.html", {
+        'products': page_obj,                   # Список товаров для отображения
+        'sort_options': sort_options,           # Словарь для создания ссылок в меню через цикл
+    })
+
+    
+
 
 
 
@@ -65,9 +84,7 @@ def shop_single(request, slug):
     return render(request, "shop-single.html", {'product': product})
 
 
-# def shop_single(request, product_id):
-#     product = get_object_or_404(Product, id=product_id)
-#     return render(request, "shop-single.html", {'product': product})
+
 
 def cart(request):
     return render(request, "cart.html")
