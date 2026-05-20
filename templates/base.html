@@ -21,8 +21,26 @@
   
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
 
-  {% comment %} <link rel="stylesheet" href="{% static 'css/home/style.css' %}"> {% endcomment %}
+  <!-- Подключаем саму библиотеку HTMX -->
+  <script src="https://unpkg.com/htmx.org"></script>
 
+  <script>
+    /* 
+       Важнейшая часть: Django требует CSRF-токен для любого POST-запроса.
+       Этот скрипт говорит HTMX: "Перед каждым запросом загляни в куки, 
+       возьми там CSRF-токен и положи его в заголовок X-CSRFToken".
+       Так нам не придется писать {% csrf_token %} внутри каждой кнопки.
+    */
+    document.addEventListener('htmx:configRequest', (event) => {
+        event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+    });
+
+  </script>
+
+
+
+
+  
 </head>
 
 <body>
@@ -73,12 +91,29 @@
                 <li><a href="{% url 'home:contact' %}">Contact</a></li>
               </ul>
             </nav>
+
+            <!-- Блок уведомлений -->
+            {% if messages %}
+              <div class="container mt-3">
+                {% for message in messages %}
+                  <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+
           </div>
           <div class="icons">
-            <a href="#" class="icons-btn d-inline-block js-search-open"><span class="icon-search"></span></a>
-            <a href="{% url 'goods:cart' %}" class="icons-btn d-inline-block bag">
+            <a href="{% url 'carts:cart_detail' %}" class="icons-btn d-inline-block js-search-open"><span class="icon-search"></span></a>
+            <a href="{% url 'carts:cart_detail' %}" class="icons-btn d-inline-block bag">
               <span class="icon-shopping-bag"></span>
-              <span class="number">2</span>
+              <!-- Если товаров нет, покажем 0 -->
+              <!-- Добавили id, чтобы HTMX мог найти это число -->
+              <span class="number" id="cart-total-count">{{ total_quantity|default:0 }}</span>
             </a>
             <a href="#" class="site-menu-toggle js-menu-toggle ml-3 d-inline-block d-lg-none"><span
                 class="icon-menu"></span></a>
@@ -160,6 +195,13 @@
 
   <script src={% static "js/main.js" %}></script>
 
+  <script>
+    // Скрыть уведомление через 4 секунды...
+    // Уведомление о том что товар успешно добавлен в корзину.
+    setTimeout(function() {
+      $('.alert').alert('close');
+    }, 4000);
+  </script>
 </body>
 
 </html>

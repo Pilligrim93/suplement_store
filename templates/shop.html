@@ -41,8 +41,6 @@
           </div>
         </div>
 
-
-
         <div class="row">
           {% for product in products %}
             <div class="col-sm-6 col-lg-4 mb-5">
@@ -71,15 +69,21 @@
                 <p class="product-price">{{ product.price }} руб.</p>
 
                 <!-- 4. Кнопка «Купить», которой у тебя не было в магазине -->
-                <a href="#" class="btn-buy">Купить</a>
+                <form action="{% url 'carts:add_to_cart' %}" method="POST">
+                  {% csrf_token %}
 
+                  <!-- Передаем ID товара скрыто от глаз пользователя -->
+                  <input type="hidden" name="product_id" value="{{ product.id }}">
+                  
+                  <!-- Кнопка теперь типа submit, чтобы отправить форму -->
+                   <button type="submit" class="btn-buy" style="border: none; cursor: pointer;">
+                    Купить
+                  </button>
+                </form>
               </div>
             </div>
           {% endfor %}
         </div>
-
-
-
 
         <div class="row mt-5">
           <div class="col-md-12 text-center">
@@ -111,18 +115,12 @@
                   <li class="disabled"><span>&gt;</span></li>
                 {% endif %}
 
-
-                {% comment %} <li><a href="#">3</a></li>
-                <li><a href="#">4</a></li>
-                <li><a href="#">5</a></li>
-                <li><a href="#">&gt;</a></li> {% endcomment %}
               </ul>
             </div>
           </div>
         </div>
       </div>
     </div>
-
 
     <div class="site-section bg-secondary bg-image" style="background-image: url('{% static "images/bg_2.jpg" %}');">
       <div class="container">

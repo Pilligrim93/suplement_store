@@ -7,9 +7,10 @@ from goods.models import Product
 
 def shop(request):
 
+    # --- 0. Поиск товаров на сайте ---
     # --- 1. ПРИЕМ ДАННЫХ ИЗ URL ---
     # request.GET — это словарь со всеми параметрами после знака "?" в ссылке.
-    query = request.GET.get('q')           # Текст поиска (из инпута q)
+    query = request.GET.get('q')           # Текст поиска (из инпута q) то что ищет пользователь.
     min_p = request.GET.get('min_price')   # Минимальная цена (из JS-слайдера)
     max_p = request.GET.get('max_price')   # Максимальная цена (из JS-слайдера)
     sort_key = request.GET.get('sort')     # Код сортировки (из ссылок в выпадающем списке)
@@ -60,11 +61,12 @@ def shop(request):
     
     # Берем значение из карты. Если в URL пришел мусор или пусто — по умолчанию ставим 'id'
     order_field = sort_map.get(sort_key, 'id')
+    # Итоговый поиск отфильтрованных товаров.
     products = products.order_by(order_field)
 
     # --- 6. ПАГИНАЦИЯ ---
     # Режем финальный отфильтрованный список на страницы по 12 товаров
-    paginator = Paginator(products, 12)
+    paginator = Paginator(products, 9)
     # Получаем номер текущей страницы и берем нужные товары
     page_obj = paginator.get_page(request.GET.get("page"))
 

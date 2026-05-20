@@ -1,4 +1,6 @@
 from django.db import models
+from django.db.models import F, TextField
+from django.forms import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 # Create your models here.
@@ -46,7 +48,23 @@ class Product(models.Model):
         auto_now=True,
         verbose_name=_('Дата изменения товара'),
     )
+    
+    # def change_balance(self, amount):
+
+    #     if amount < 0:
+    #         nedeed = abs(amount)
         
+    #         update_rows = Product.objects.filter(
+    #             id=self.id, quantity__gte=nedeed).update(quantity=F('quantity') + amount)
+            
+    #         return update_rows > 0
+        
+    #     update_rows = Product.objects.filter(id=self.id).update(quantity=F('quantity') + amount)
+    #     return True
+
+        
+
+
     def __str__(self):
         return self.name
 
@@ -54,3 +72,5 @@ class Product(models.Model):
     class Meta:
         verbose_name = _('Продукт') 
         verbose_name_plural = _('Продукты')
+
+    
