@@ -88,7 +88,13 @@
                   </ul>
                 </li>
                 <li><a href="{% url 'home:about' %}">About</a></li>
-                <li><a href="{% url 'home:contact' %}">Contact</a></li>
+                {% comment %} Моя проверка  {% endcomment %}
+                {% if not user.is_authenticated %}
+                  <li><a href="{% url 'users:login' %}">Login</a></li>
+                {% else %}
+                  <li><a href="#">Profile</a></li>
+                  <li><a href="{% url 'users:logout' %}">Exit</a></li>
+                {% endif %}
               </ul>
             </nav>
 
@@ -105,16 +111,35 @@
                 {% endfor %}
               </div>
             {% endif %}
-
           </div>
+
           <div class="icons">
-            <a href="{% url 'carts:cart_detail' %}" class="icons-btn d-inline-block js-search-open"><span class="icon-search"></span></a>
+            <a href="#" class="icons-btn d-inline-block js-search-open">
+              <span class="icon-search"></span>
+            </a>
+
+            {# 2. Профиль / Выход #}
+            {% if not user.is_authenticated %}
+              {# Ссылка для входа #}
+              <span class="text-black mr-2">{{ user.username }}</span>
+              <a href="{% url 'users:login' %}" class="icons-btn d-inline-block">
+                <span class="icon-person"></span>
+              </a>
+            {% else %}
+            {# Имя и ссылка на выход #}
+            <span class="text-black mr-2">{{ user.username }}</span>
+            <a href="url 'users:logout" class="icons-btn d-inline-block">
+              <span class="icon-log-out"></span>
+            </a>
+            {% endif %}
+            {# 3. Корзина (Класс bag возвращен на место) #}
             <a href="{% url 'carts:cart_detail' %}" class="icons-btn d-inline-block bag">
               <span class="icon-shopping-bag"></span>
               <!-- Если товаров нет, покажем 0 -->
               <!-- Добавили id, чтобы HTMX мог найти это число -->
               <span class="number" id="cart-total-count">{{ total_quantity|default:0 }}</span>
             </a>
+            {# 4. Бургер-меню для мобильных устройств #}
             <a href="#" class="site-menu-toggle js-menu-toggle ml-3 d-inline-block d-lg-none"><span
                 class="icon-menu"></span></a>
           </div>

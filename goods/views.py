@@ -71,7 +71,7 @@ def shop(request):
     page_obj = paginator.get_page(request.GET.get("page"))
 
     # --- 7. ОТПРАВКА В ШАБЛОН ---
-    return render(request, "shop.html", {
+    return render(request, "goods/shop.html", {
         'products': page_obj,                   # Список товаров для отображения
         'sort_options': sort_options,           # Словарь для создания ссылок в меню через цикл
     })
@@ -83,13 +83,13 @@ def shop(request):
 
 def shop_single(request, slug):
     product = get_object_or_404(Product, slug=slug)
-    return render(request, "shop-single.html", {'product': product})
+    return render(request, "goods/shop-single.html", {'product': product})
 
 
 
 
-def cart(request):
-    return render(request, "cart.html")
+# def cart(request):
+#     return render(request, "carts/cart.html")
 
 
 

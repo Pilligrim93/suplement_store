@@ -30,4 +30,3 @@ def cart_stats(request:HttpRequest):
 
 
     
-    return {'total_quantity': total_quantity}

@@ -1,0 +1,123 @@
+
+
+{% comment %}
+    Форма регистрации. 
+    Поля name соответствуют стандартным полям User в Django: username, email, password.
+{% endcomment %}
+
+<form hx-post="{% url 'users:registration' %}" hx-target="#auth-container" class="p-3 p-lg-5 border">
+    {% csrf_token %}
+    
+    <div class="col-md-12">
+        <h3 class="text-black h4 text-uppercase">Регистрация</h3>
+    </div>
+    
+    <!-- Общие ошибки формы (например, пароли не совпали) -->
+    {% if  form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="form-group row">
+        <div class="col-md-12">
+            <label class="text-black">Логин <span class="text-danger">*</span></label>
+            <!-- 
+              ИСПРАВЛЕНИЕ: Добавили value="{{ form.username.value|default:'' }}".
+              Зачем: Чтобы при ошибке (например, в пароле) введенный логин не стирался.
+            -->
+            <input type="text" name="username" class="form-control"
+                placeholder="Придумайте логин" 
+                value="{{ form.username.value|default:''}}" required>
+
+            <!-- Добавляем вывод ошибки конкретно под этим полем -->
+            {% if form.username.errors %}
+                <small class="text-danger">{{ form.username.errors.0 }}</small>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="form-group row">
+        <div class="col-md-12">
+            <label class="text-black">Email <span class="text-danger">*</span></label>
+            <!-- ИСПРАВЛЕНИЕ: Добавили сохранение введенного email при ошибке -->
+            <input type="email" name="email" class="form-control"
+                placeholder="your@email.com" 
+                value="{{ form.email.value|default:'' }}" required>
+
+            {% if form.email.errors %}
+                <small class="text-danger">{{ form.email.errors.0 }}</small>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="form-group row">
+        <div class="col-md-6">
+            <label class="text-black">Пароль <span class="text-danger">*</span></label>
+            <!-- 1. НОВАЯ ОБЕРТКА: позволяет кнопке встать в одну строку с полем -->
+            <div class="input-group">
+            
+                <!-- 2. АТРИБУТ id: нужен скрипту, чтобы найти именно этот инпут -->
+                <input type="password" name="password1" id="pass1" class="form-control" required>
+            
+                <!-- 3. КНОПКА-ГЛАЗОК: type="button" чтобы не отправлять форму раньше времени -->
+                <button class="btn btn-outline-secondary" type="button" 
+                        onclick="togglePass('pass1')">👁️</button>
+        </div>
+            
+
+        </div>
+        <div class="col-md-6">
+            <label class="text-black">Повтор пароля <span class="text-danger">*</span></label>
+            
+            <div class="input-group">
+            <!-- 4. УНИКАЛЬНЫЙ id: здесь уже pass2, чтобы не путать с первым полем -->
+            <input type="password" name="password2" id="pass2" class="form-control" required>
+            {% if form.password2.errors %}
+                <small class="text-danger">{{ form.password2.errors }}</small>
+            {% endif %}
+            <!-- 5. ВЫЗОВ ФУНКЦИИ: передаем id нужного поля в кавычках -->
+            <button class="btn btn-outline-secondary" type="button" 
+                    onclick="togglePass('pass2')">👁️</button>
+        </div>
+            
+            
+            
+            {% comment %} <!-- ИСПРАВЛЕНИЕ: Изменили name на password2 для совместимости с формой Django -->
+            <input type="password" name="password2" class="form-control" required>
+            <!-- Django - form проверяет только password2 -->
+            {% if form.password2.errors %}
+                <small class="text-danger">{{ form.password2.errors }}</small>
+            {% endif %}
+        </div> {% endcomment %}
+    </div>
+
+    <div class="form-group row">
+        <div class="col-lg-12">
+            <button type="submit" class="btn btn-primary btn-lg btn-block">Создать аккаунт</button>
+        </div>
+    </div>
+
+    <div class="mt-3 text-center">
+        <span>Уже есть аккаунт? </span>
+        <!-- 
+            HTMX-магия: при нажатии на эту кнопку, содержимое #auth-container 
+            заменится на форму логина.
+        -->
+        <button type="button" class="btn btn-link p-0" 
+                hx-get="{% url 'users:login' %}" 
+                hx-target="#auth-container">Войти</button>
+    </div>
+</form>
+
+
+
+
+<!-- 6. СКРИПТ: Универсальный инструмент для переключения типа поля -->
+<script>
+function togglePass(id) {
+    // Находим инпут по переданному ID (pass1 или pass2)
+    const input = document.getElementById(id);
+    
+    // Меняем тип: если был пароль — станет текст, и наоборот
+    input.type = input.type === "password" ? "text" : "password";
+}
+</script>

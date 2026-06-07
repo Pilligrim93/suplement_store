@@ -34,7 +34,7 @@ def cart_detail(request:HttpRequest):
     context = {
         'cart_items': cart_items,
     }
-    return render(request, 'cart.html', context)
+    return render(request, 'carts/cart.html', context)
 
 
 def add_to_cart(request:HttpRequest):
@@ -136,7 +136,7 @@ def cart_update(request:HttpRequest):
             cart_items = cart.cartitem_set.all().order_by('id').select_related('product')
 
             # Вместо редиректа возвращаем ТОЛЬКО фрагмент таблицы
-            return render(request, 'includes/included_cart.html', {'cart_items': cart_items})
+            return render(request, 'carts/includes/included_cart.html', {'cart_items': cart_items})
     # Если это не HTMX (например, отключен JS), делаем обычный редирект
     return redirect(request.META.get('HTTP_REFERER', 'carts:cart_detail'))
 
@@ -168,7 +168,7 @@ def remove_from_cart(request:HttpRequest):
             # Корзина с товарами упорядоченная по id.
             cart_items = cart.cartitem_set.all().order_by('id').select_related('product')
             # Возвращаем обновленный фрагмент (товар исчезнет из таблицы мгновенно)
-            return render(request, 'includes/included_cart.html', {'cart_items': cart_items})
+            return render(request, 'carts/includes/included_cart.html', {'cart_items': cart_items})
 
     messages.success(request, "Товар успешно удален из корзины!")
     return redirect(request.META.get('HTTP_REFERER', 'carts:cart_detail'))

@@ -1,6 +1,65 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block content %}
+<div class="bg-light py-3">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12 mb-0">
+                <a href="{% url 'home:index' %}">Home</a> <span class="mx-2 mb-0">/</span> 
+                <strong class="text-black" id="auth-title">Login</strong>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="site-section">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <h2 class="h3 mb-3 text-black">Личный кабинет</h2>
+            </div>
+            
+            <!-- МИШЕНЬ ДЛЯ HTMX: Сюда будет загружаться либо вход, либо регистрация -->
+            <div class="col-md-7" id="auth-container">
+                {% include "users/includes/_login_form.html" %}
+            </div>
+
+            <div class="col-md-5 ml-auto">
+                <div class="p-4 border mb-3">
+                    <span class="d-block text-primary h6 text-uppercase">Наши преимущества</span>
+                    <p>Авторизуйтесь, чтобы ваши товары в корзине сохранялись навсегда и вы могли отслеживать статус доставки.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{% comment %} {% extends "base.html" %}
+{% load static %}
+
 {% block title %}Контакты — Pharma{% endblock title %}
 
 {% block content %}
@@ -98,7 +157,7 @@
       </div>
       
     </div>
-{% endblock content %}
+{% endblock content %} {% endcomment %}
 
 
     
