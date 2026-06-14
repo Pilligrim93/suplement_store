@@ -9,11 +9,13 @@ from django.contrib import messages
 
 from django.views.generic import CreateView
 from django.urls import reverse_lazy
+
+from carts.utils import CartMergeMixin
 from .forms import UserRegistrationForm
 
 
 
-class MyLoginView(LoginView):
+class MyLoginView(CartMergeMixin, LoginView):
     """Авторизация пользоваетля"""
 
     template_name = 'users/login.html'
@@ -28,6 +30,25 @@ class MyLoginView(LoginView):
     
     def get_success_url(self):
         return reverse_lazy('home:index')
+    
+    def form_valid(self, form):
+        # ШАГ 1: Запоминаем анонимный ключ ДО логина
+        anonymous_session_key = self.request.session.session_key
+
+        # 2. Сначала даем Django выполнить стандартный вход (сессии и т.д.)
+        response = super().form_valid(form)
+
+        # 3. Сливаем (обьединяем) корзины, передавая старый ключ
+        self.merge_cart(anonymous_session_key)
+
+        # 2. Если это HTMX, даем тот самый "волшебный пендель" для редиректа всей страницы
+        if self.request.headers.get('HX-Request'):
+            response = HttpResponse()
+            response['HX-Redirect'] = str(self.get_success_url())
+            return response
+        
+        # 3. Для обычных браузерных запросов
+        return redirect(self.get_success_url())
     
 
     def form_invalid(self, form):
@@ -45,7 +66,7 @@ def logout(request:HttpRequest):
 
 
 # Мы наследуемся от CreateView. Этот "робот" сам умеет создавать записи в базе данных.
-class UserRegistrationView(CreateView):
+class UserRegistrationView(CartMergeMixin, CreateView):
     """Регистрация пользователя"""
 
     # Переопределяем переменные из CreateView
@@ -73,10 +94,18 @@ class UserRegistrationView(CreateView):
     
 
     def form_valid(self, form):
+
+        anonymous_session_key = self.request.session.session_key
+
         # Создаем user и заполняем проверенные данные из form в бд.
         user = form.save()
+
         # Автоматический авторизируем user.
         auth.login(self.request, user)
+
+        # Привязываем корзину к пользователю
+        self.merge_cart( anonymous_session_key) 
+
         messages.success(self.request, "Успешная регистрация!")
 
         # 3. МАГИЯ HTMX: Если запрос от HTMX, делаем жесткий редирект всей страницы
@@ -87,7 +116,7 @@ class UserRegistrationView(CreateView):
 
         
         # Для обычных запросов оставляем стандарт
-        return super().form_valid(form)
+        return redirect(self.success_url)
 
 
     # Если это НЕ HTMX, говорим родителю (CreateView): "Работай как обычно, покажи полную страницу".
@@ -102,3 +131,4 @@ class UserRegistrationView(CreateView):
         return super().form_invalid(form)
 
     
+
