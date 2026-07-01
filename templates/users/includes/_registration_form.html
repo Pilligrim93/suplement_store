@@ -79,15 +79,6 @@
                     onclick="togglePass('pass2')">👁️</button>
         </div>
             
-            
-            
-            {% comment %} <!-- ИСПРАВЛЕНИЕ: Изменили name на password2 для совместимости с формой Django -->
-            <input type="password" name="password2" class="form-control" required>
-            <!-- Django - form проверяет только password2 -->
-            {% if form.password2.errors %}
-                <small class="text-danger">{{ form.password2.errors }}</small>
-            {% endif %}
-        </div> {% endcomment %}
     </div>
 
     <div class="form-group row">

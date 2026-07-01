@@ -92,7 +92,7 @@
                 {% if not user.is_authenticated %}
                   <li><a href="{% url 'users:login' %}">Login</a></li>
                 {% else %}
-                  <li><a href="#">Profile</a></li>
+                  <li><a href="{% url 'users:profile' %}">Profile</a></li>
                   <li><a href="{% url 'users:logout' %}">Exit</a></li>
                 {% endif %}
               </ul>
@@ -120,18 +120,18 @@
 
             {# 2. Профиль / Выход #}
             {% if not user.is_authenticated %}
-              {# Ссылка для входа #}
-              <span class="text-black mr-2">{{ user.username }}</span>
+              {# Для анонима показываем только иконку входа #}
               <a href="{% url 'users:login' %}" class="icons-btn d-inline-block">
                 <span class="icon-person"></span>
               </a>
             {% else %}
-            {# Имя и ссылка на выход #}
+            {# Для авторизированого имя и ссылка на выход #}
             <span class="text-black mr-2">{{ user.username }}</span>
-            <a href="url 'users:logout" class="icons-btn d-inline-block">
+            <a href="{% url 'users:logout' %}" class="icons-btn d-inline-block">
               <span class="icon-log-out"></span>
             </a>
             {% endif %}
+            
             {# 3. Корзина (Класс bag возвращен на место) #}
             <a href="{% url 'carts:cart_detail' %}" class="icons-btn d-inline-block bag">
               <span class="icon-shopping-bag"></span>

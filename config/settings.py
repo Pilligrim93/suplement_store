@@ -42,17 +42,19 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
-
+    
+    # Мои приложения.
     'home',
     'goods',
     'carts',
     'users',
 
 
-
+    # Сторонние библиотеки
     'django_cleanup.apps.CleanupConfig',
     'django_extensions',
     'easy_thumbnails',
+    'widget_tweaks',
     
 
     

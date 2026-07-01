@@ -1,12 +1,12 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User, Profile                            # Моя кастомная модель User
+from .models import User                       # Моя кастомная модель User
 
 
-class ProfileInline(admin.StackedInline):
-    model = Profile                     # Эту модель мы вклеиваем в страницу пользователя.
-    can_delete = False                        #  Запрет на удаление profile в админке если удалить то сайт упаедет.
-    erbose_name_plural = 'Профиль пользователя'
+# class ProfileInline(admin.StackedInline):
+#     model = Profile                     # Эту модель мы вклеиваем в страницу пользователя.
+#     can_delete = False                        #  Запрет на удаление profile в админке если удалить то сайт упаедет.
+#     erbose_name_plural = 'Профиль пользователя'
 
 
 # @admin.register(Profile)
@@ -31,6 +31,9 @@ class MyUserAdmin(UserAdmin):
     # Поля, которые можно редактировать прямо в списке
     list_editable = ('is_staff',)
 
-    # Добавляем профиль вниз страницы редактирования 
-    # без этой строки не будет подключен Profile в админке
-    inlines = (ProfileInline, )
+    # Добавляем новые поля (телефон и аватар) на страницу редактирования пользователя
+    fieldsets = UserAdmin.fieldsets + (
+        ('Дополнительная информация', {
+            'fields': ('phone_number', 'image')
+        }),
+    )

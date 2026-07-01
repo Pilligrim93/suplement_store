@@ -1,0 +1,252 @@
+{% load widget_tweaks %}
+
+<div class="row g-4 w-100 m-0">
+    
+    <!-- ЛЕВАЯ КОЛОНКА: Фото и Меню (Стоит независимо, ничего не ломает) -->
+    <div class="col-md-4 p-0 pr-md-3">
+        <div class="p-4 shadow-sm bg-white text-center mb-4" style="border-radius: 5px;">
+            <h5 class="text-muted mb-3 small fw-bold">ФОТО ПРОФИЛЯ</h5>
+            <div class="mb-3 d-flex justify-content-center">
+                {% if user.image %}
+                    <img src="{{ user.image.url }}" alt="Avatar" class="rounded img-thumbnail shadow-sm w-100" style="height: 240px; object-fit: cover;">
+                {% else %}
+                    <div class="rounded bg-light d-inline-flex align-items-center justify-content-center shadow-sm w-100" style="height: 240px; border: 2px dashed #ccc;">
+                        <span class="text-muted small">Нет фото</span>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Навигационное меню, уложенное прямо под широким фото -->
+            <div class="list-group text-start mt-4">
+                
+                <!-- ИСПРАВЛЕНО: Зафиксировали font-weight: normal; для обоих состояний, чтобы шрифт не прыгал -->
+                {% if is_edit or form.errors %}
+                    <div class="list-group-item list-group-item-action text-center active" 
+                        style="background-color: #00ffd5; border-color: #00ffd5; color: #000; font-weight: normal; cursor: default; padding: 12px 20px;">
+                        Личные данные
+                    </div>
+                {% else %}
+                    <a href="#" class="list-group-item list-group-item-action text-center active" 
+                    style="background-color: #00ffd5; border-color: #00ffd5; color: #000; font-weight: normal; padding: 12px 20px;"
+                    hx-get="{% url 'users:profile' %}?tab=profile" 
+                    hx-target="#profile-main-container">
+                    Личные данные
+                    </a>
+                {% endif %}
+
+                <a href="#" class="list-group-item list-group-item-action text-center"
+                style="{% if tab == 'orders' %}background-color: #00ffd5; border-color: #00ffd5; color: #000;{% else %}color: #495057;{% endif %} font-weight: normal; padding: 12px 20px;"
+                hx-get="{% url 'users:profile' %}?tab=orders" 
+                hx-target="#profile-main-container">
+                Мои заказы
+                </a>
+                
+                <a href="{% url 'carts:cart_detail' %}" class="list-group-item list-group-item-action text-center" style="padding: 12px 20px; font-weight: normal;">
+                Вернуться в корзину
+                </a>
+                <a href="{% url 'users:logout' %}" class="list-group-item list-group-item-action text-danger text-center" style="padding: 12px 20px; font-weight: normal;">
+                Выйти
+                </a>
+            </div>
+
+
+        </div>
+    </div>
+
+    <!-- ПРАВАЯ КОЛОНКА: Настройки профиля (Форма обернута СТРОГО вокруг полей) -->
+    <div class="col-md-8 p-0">
+        <div class="p-4 shadow-sm bg-white h-100" style="border-radius: 5px;">
+            
+            {% if tab == 'orders' %}
+                {% include 'users/includes/_user_orders.html' %}
+            {% else %}
+                <h4 class="mb-4 text-muted fw-bold">Настройки профиля</h4>
+
+                <!-- Вывод сообщений с автоматическим удалением через чистый HTMX -->
+                {% if messages %}
+                    {% for message in messages %}
+                        <!-- 
+                        hx-trigger="load delay:3s" -> сработает сам через 3 секунды после загрузки
+                        hx-get -> делает пустой фоновый запрос
+                        hx-swap="delete" -> полностью стирает этот <div> с экрана
+                        -->
+                        <div class="alert alert-success alert-dismissible fade show mb-4" role="alert"
+                            hx-trigger="load delay:3s"
+                            hx-get="{% url 'users:profile' %}?tab=profile&edit=0"
+                            hx-swap="delete">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <!-- Форма теперь изолирована внутри правой колонки -->
+                <form hx-post="{% url 'users:profile' %}" 
+                      hx-target="#profile-main-container" 
+                      hx-swap="innerHTML" 
+                      hx-encoding="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    
+                    <!-- ИСПРАВЛЕНО: Блок выбора файла теперь показывается ТОЛЬКО при редактировании -->
+                    {% if is_edit or form.errors %}
+                        <div class="mb-3">
+                            <label class="form-label text-muted small fw-bold">ОБНОВИТЬ АВАТАР</label>
+                            {{ form.image|add_class:"form-control form-control-sm" }}
+                        </div>
+                    {% endif %}
+
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">Имя</label>
+                            {{ form.first_name|add_class:"form-control" }}
+                            {% if form.first_name.errors %}<div class="text-danger small">{{ form.first_name.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small">Фамилия</label>
+                            {{ form.last_name|add_class:"form-control" }}
+                            {% if form.last_name.errors %}<div class="text-danger small">{{ form.last_name.errors|striptags }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">Email</label>
+                        {{ form.email|add_class:"form-control" }}
+                        {% if form.email.errors %}<div class="text-danger small">{{ form.email.errors|striptags }}</div>{% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">Имя пользователя (Login)</label>
+                        {{ form.username|add_class:"form-control" }}
+                        {% if form.username.errors %}<div class="text-danger small">{{ form.username.errors|striptags }}</div>{% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label text-muted small">Номер телефона</label>
+                        {{ form.phone_number|add_class:"form-control" }}
+                        {% if form.phone_number.errors %}<div class="text-danger small">{{ form.phone_number.errors|striptags }}</div>{% endif %}
+                    </div>
+
+                    <!-- УПРАВЛЕНИЕ КНОПКАМИ ПО КРУГУ -->
+                    <div class="mt-4">
+                        {% if is_edit or form.errors %}
+                            <button type="submit" class="btn w-100 fw-bold shadow-sm mb-2" 
+                                    style="background-color: #4df3e6; color: #000; border: none; padding: 12px;">
+                                СОХРАНИТЬ ИЗМЕНЕНИЯ
+                            </button>
+                            <button type="button" class="btn btn-light w-100 fw-bold text-muted shadow-sm"
+                                    hx-get="{% url 'users:profile' %}?tab=profile"
+                                    hx-target="#profile-main-container">
+                                Отмена
+                            </button>
+                        {% else %}
+                            <button type="button" class="btn w-100 fw-bold shadow-sm" 
+                                    style="background-color: #00ffd5; color: #000; border: none; padding: 12px;"
+                                    hx-get="{% url 'users:profile' %}?tab=profile&edit=1"
+                                    hx-target="#profile-main-container">
+                                РЕДАКТИРОВАТЬ ПРОФИЛЬ
+                            </button>
+                        {% endif %}
+                    </div>
+                </form>
+            {% endif %}
+            
+        </div>
+    </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+{% comment %} {% load widget_tweaks %}
+
+<h4 class="mb-4">Настройки профиля</h4>
+
+<!-- Вывод сообщений -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<form hx-post="{% url 'users:profile' %}" 
+    hx-target="#profile-content" 
+    hx-swap="innerHTML"
+    hx-encoding="multipart/form-data">
+    {% csrf_token %}
+
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label class="form-label text-muted">Имя</label>
+            {{ form.first_name|add_class:"form-control" }}
+            {% if form.first_name.errors %}<div class="text-danger small">{{ form.first_name.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+            <label class="form-label text-muted">Фамилия</label>
+            {{ form.last_name|add_class:"form-control" }}
+            {% if form.last_name.errors %}<div class="text-danger small">{{ form.last_name.errors|striptags }}</div>{% endif %}
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label text-muted">Email</label>
+        <!-- Просто через фильтр добавляем нужный класс -->
+        {{ form.email|add_class:"form-control" }}
+        {% if form.email.errors %}
+        <div class="text-danger small">{{ form.email.errors|striptags }}</div>
+        {% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label text-muted">Имя пользователя (Login)</label>
+        {{ form.username|add_class:"form-control" }}
+        {% if form.username.errors %}<div class="text-danger small">{{ form.username.errors|striptags }}</div>{% endif %}
+    </div>
+    
+
+    <!-- Добавлено поле Номер телефона -->
+    <div class="mb-3">
+        <label class="form-label text-muted">Номер телефона</label>
+        {{ form.phone_number|add_class:"form-control" }}
+        {% if form.phone_number.errors %}<div class="text-danger small">{{ form.phone_number.errors|striptags }}</div>{% endif %}
+    </div>
+
+
+    <!-- Добавлено поле Аватарка профиля -->
+    <div class="mb-4">
+        <label class="form-label text-muted">Аватар профиля</label>
+
+        <!-- Показываем старую аватарку, если она загружена -->
+        {% if user.image %}
+            <div class="mb-2">
+                <img src="{{ user.image.url }}" alt="Avatar" class="img-thumbnail" style="max-width: 100px;">
+            </div>
+        {% endif %}
+
+        <!-- Кнопка выбрать файл но что то не похоже -->
+        {{ form.image|add_class:"form-control" }}
+
+
+        {% if form.image.errors %}
+            <div class="text-danger small">{{ form.image.errors|striptags }}</div>
+        {% endif %}
+    </div>
+
+
+
+    <button type="submit" class="btn w-100 fw-bold" 
+            style="background-color: #4df3e6; color: #000; border: none; padding: 12px;">
+        СОХРАНИТЬ ИЗМЕНЕНИЯ
+    </button>
+</form> {% endcomment %}

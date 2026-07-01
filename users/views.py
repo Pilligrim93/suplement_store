@@ -4,14 +4,18 @@ from email import message
 from django.contrib.auth.views import LoginView
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth import get_user_model
 from django.contrib import auth
+
 from django.contrib import messages
 
-from django.views.generic import CreateView
+from django.views.generic import CreateView, UpdateView
 from django.urls import reverse_lazy
 
 from carts.utils import CartMergeMixin
-from .forms import UserRegistrationForm
+from .forms import ProfileForm, UserRegistrationForm
 
 
 
@@ -131,4 +135,187 @@ class UserRegistrationView(CartMergeMixin, CreateView):
         return super().form_invalid(form)
 
     
+class UserProfileView(LoginRequiredMixin, UpdateView):
+    """Личный кабинет пользователя с гарантированной блокировкой полей через бэк"""
+    # Переопределяем переменные под себя.
+    model = get_user_model()
+    form_class = ProfileForm
+    template_name = 'users/profile.html'
+    success_url = reverse_lazy('users:profile')
 
+    def get_object(self, queryset=None):
+        return self.request.user
+
+    def get_form(self, form_class=None):
+        """Этот метод собирает форму для ВСЕХ сценариев (и F5, и HTMX)"""
+        form = super().get_form(form_class)
+        
+        # Проверяем, хочет ли пользователь редактировать прямо сейчас
+        is_edit = self.request.GET.get('edit') == '1'
+        
+        # Если форма пришла с ошибками (после POST), она ДОЛЖНА быть открыта
+        if self.request.method == 'POST' and not form.is_valid():
+            is_edit = True
+
+        # ЕСЛИ НЕ РЕДАКТИРУЕМ — БЛОКИРУЕМ ВСЕ ПОЛЯ НА КОРНЮ
+        if not is_edit:
+            for field in form.fields.values():
+                field.disabled = True
+                
+        return form
+
+    def get(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        
+        # Если это скрытый клик от HTMX — отдаем только внутренний шаблон
+        if request.headers.get('HX-Request'):
+            tab = request.GET.get('tab', 'profile')
+            is_edit = request.GET.get('edit') == '1'
+            
+            context = self.get_context_data()
+            context['tab'] = tab
+            context['is_edit'] = is_edit
+            return render(request, 'users/includes/_profile_form.html', context)
+        
+        # Обычный холодный заход (F5) — отдаем всю страницу целиком.
+        # Метод get_form() отработает сам внутри super() и заблокирует поля!
+        return super().get(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        form = self.get_form()
+        if form.is_valid():
+            return self.form_valid(form)
+        return self.form_invalid(form)
+        
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        if self.request.headers.get('HX-Request'):
+            messages.success(self.request, "Профиль успешно обновлен")
+            return render(self.request, 'users/includes/_profile_form.html', self.get_context_data())
+        return response
+    
+    def form_invalid(self, form):
+        if self.request.headers.get('HX-Request'):
+            return render(self.request, 'users/includes/_profile_form.html', {'form': form})
+        return super().form_invalid(form)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+# class UserProfileView(LoginRequiredMixin, UpdateView):
+#     """Личный кабинет пользователя на классах с поддержкой HTMX"""
+
+#     # Переопределяю переменные super()
+
+#     # Получаю свою кастомную модель User 
+#     model = get_user_model()
+
+#     # Получаю форму.
+#     form_class = ProfileForm
+
+#     # Указываю главный шаблон личного кабинета.
+#     template_name = 'users/profile.html'
+
+#     # Куда перенаправить при успешном сохранении (на эту же страницу)
+#     success_url = reverse_lazy('users:profile')
+
+
+#     # Переопределяя этот метод мы отключаем 
+#     # стандартный поиск по id из url
+#     def get_object(self, queryset=None):
+#         """Получаем текущего user из request"""
+#         # Возвращаем текущего пользователя в UpdateView. 
+#         return self.request.user
+    
+
+#     def get(self, request, *args, **kwargs):
+
+#         # Текущий экземпляр класса становиться конкретным текущим User
+#         self.object = self.get_object()
+        
+#         # 1. Считываем маркеры из URL (работает и для HTMX, и для обычной ссылки)
+#         # Что выбрал пользователь данные в этих перерменных.
+#         tab = request.GET.get('tab')
+#         is_edit = request.GET.get('edit') == '1'
+
+#         # 2. Собираем контекст и дописываем маркеры
+#         context = self.get_context_data()
+#         context['tab'] = tab
+#         context['edit_mode'] = is_edit
+
+#         # 3. ЛОГИКА БЭКЕНДА: Если НЕ режим редактирования — блокируем ВСЕ поля
+#         if not is_edit:
+#             for field in context['form'].fields.values():
+#                 field.disabled = True
+
+#         # 4. Диспетчер ответов:
+#         if request.headers.get('HX-Request'):
+#             # Если кликнул HTMX — отдаем только начинку
+#             return render(request, 'users/includes/_profile_form.html', context)
+        
+#         # Если это первый заход на страницу — отдаем весь profile.html, 
+#         # но передаем туда наш настроенный context!
+#         return super().get(request, *args, **kwargs)
+
+    
+
+#     # def get(self, request, *args, **kwargs):
+
+#     #     # Текущий экземпляр класса становиться конкретным текущим User
+#     #     self.object = self.get_object()
+        
+#     #     # Если запрос от HTMX
+#     #     if request.headers.get('HX-Request'):
+#     #         # Получаем переменную из template где будут заказы или профиль 
+#     #         tab = request.GET.get('tab')
+#     #         if tab == 'orders':
+#     #             # 3-е аргументы содержат данные для template.
+#     #             return render(request, 'users/includes/_user_orders.html', {'user': request.user})
+#     #         if tab == 'profile':
+#     #             return render(request, 'users/includes/_profile_form.html', self.get_context_data())
+#     #     # Загрузка всей страницы profile.htmx. 
+#     #     # Переменные *args, **kwargs попадают из url
+#     #     return super().get(request, *args, **kwargs)
+    
+
+#     def post(self, request, *args, **kwargs):
+
+#         # Текущий экземпляр класса становиться конкретным текущим User
+#         self.object = self.get_object()
+#         # Данные формы
+#         form = self.get_form()
+#         if form.is_valid():
+#             # Если допустимая сохранем в бд и уведомляем user о успехе. 
+#             return self.form_valid(form)
+#         # Иначе не сохраняем но выводим форму с ошибками для user. 
+#         return self.form_invalid(form)
+        
+#     def form_valid(self, form):
+#         # Важно это сохраняет форму пользоваетля а не просто 
+#         # подготовка ответа если запрос не от HTMX. 
+#         response = super().form_valid(form)
+
+#         if self.request.headers.get('HX-Request'):
+#             messages.success(self.request, "Профиль успешно обновлен")
+#             return render(self.request, 'users/includes/_profile_form.html', {'form': form})
+#         return response
+    
+#     def form_invalid(self, form):
+#         # response = super().form_invalid(form) - не используем так
+#         #  как здесь сохранение формы не нужно
+#         if self.request.headers.get('HX-Request'):
+#             return render(self.request, 'users/includes/_profile_form.html', {'form': form})
+#         # Возвращаем форму с ошибками для пользователя.
+#         return super().form_invalid(form)

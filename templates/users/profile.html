@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <!-- Сюда HTMX будет возвращать всю структуру профиля целиком -->
+    <div id="profile-main-container" class="row g-4 w-100 m-0">
+        {% include 'users/includes/_profile_form.html' %}
+    </div>
+</div>
+{% endblock content %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{% comment %} {% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <!-- Левое меню (Навигация) -->
+        <div class="col-md-4">
+            <div class="list-group shadow-sm">
+                <!-- Ссылка для первой вкладки: передаем ?tab=profile -->
+                <a href="#" class="list-group-item list-group-item-action active" 
+                   style="background-color: #00ffd5; border-color: #00ffd5; color: #000;"
+                   hx-get="{% url 'users:profile' %}?tab=profile" 
+                   hx-target="#profile-content">
+                   Личные данные
+                </a>
+
+                <!-- Ссылка для второй вкладки: передаем ?tab=orders -->
+                <a href="#" class="list-group-item list-group-item-action"
+                   hx-get="{% url 'users:profile' %}?tab=orders" 
+                   hx-target="#profile-content">
+                   Мои заказы
+                </a>
+
+                <a href="{% url 'carts:cart_detail' %}" class="list-group-item list-group-item-action">
+                   Вернуться в корзину
+                </a>
+                <a href="{% url 'users:logout' %}" class="list-group-item list-group-item-action text-danger">
+                   Выйти
+                </a>
+            </div>
+        </div>
+
+        <!-- Правая часть (Контент, который меняется) -->
+        <div class="col-md-8">
+            <!-- HTMX будет целиком менять содержимое внутри этого div -->
+            <div id="profile-content" class="p-4 shadow-sm bg-white" style="border-radius: 5px;">
+                <!-- При первой загрузке страницы здесь сразу показывается форма -->
+                {% include 'users/includes/_profile_form.html' %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %} {% endcomment %}

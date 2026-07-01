@@ -35,10 +35,10 @@ class Product(models.Model):
     name = models.CharField(max_length=200, unique=True, verbose_name=_('Название'))
     slug = models.SlugField(max_length=200, unique=True, null=True, verbose_name=_('Слаг'))
     category = models.ForeignKey(Category, on_delete=models.CASCADE, verbose_name=_('Категория'))
-    description = models.TextField(max_length=500, unique=True, verbose_name=_('Описание'))
+    description = models.TextField(verbose_name=_('Описание'))
     price = models.DecimalField(default=0.00, max_digits=9, decimal_places=2, verbose_name=_('Цена'))
     quantity = models.PositiveIntegerField(default=0, verbose_name=_('Количество'))
-    image = models.ImageField(upload_to='goods_images/', unique=True, verbose_name=_('Изображение'))
+    image = models.ImageField(upload_to='goods_images/', verbose_name=_('Изображение'))
     discount = models.DecimalField(default=0.0, max_digits=5, decimal_places=2, verbose_name=_('Скидка'))
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -49,21 +49,7 @@ class Product(models.Model):
         verbose_name=_('Дата изменения товара'),
     )
     
-    # def change_balance(self, amount):
-
-    #     if amount < 0:
-    #         nedeed = abs(amount)
         
-    #         update_rows = Product.objects.filter(
-    #             id=self.id, quantity__gte=nedeed).update(quantity=F('quantity') + amount)
-            
-    #         return update_rows > 0
-        
-    #     update_rows = Product.objects.filter(id=self.id).update(quantity=F('quantity') + amount)
-    #     return True
-
-        
-
 
     def __str__(self):
         return self.name
