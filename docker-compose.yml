@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # 1. Сверхбыстрый буфер Redis — сердце нашей защиты от Race Conditions
+  redis:
+    image: redis:7.2-alpine
+    container_name: pharma_redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+  # 2. Наш интернет-магазин на Django
+  web:
+    build: .
+    container_name: pharma_django
+    # Команда запуска сервера внутри контейнера Linux
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+    restart: always
+
+  # 3. Фоновые воркеры Celery — обрабатывают заказы и шлют email
+  celery:
+    build: .
+    container_name: pharma_celery
+    # Запуск Celery через вашу корневую папку настроек config
+    command: celery -A config worker --loglevel=info
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - web
+    restart: always
