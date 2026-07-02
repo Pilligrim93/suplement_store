@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'goods',
     'carts',
     'users',
+    'orders',
 
 
     # Сторонние библиотеки
