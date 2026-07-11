@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container my-5">
+    <!-- Заголовок страницы оформления заказа -->
+    <h1 class="mb-4 fw-bold text-dark">Оформление заказа</h1>
+
+    <!-- 1. Проверяем, есть ли товары в корзине -->
+    {% if not cart_items %}
+        <!-- Если корзина пуста, блокируем оформление и вежливо возвращаем в магазин -->
+        <div class="alert alert-warning text-center p-4 border-0 rounded-3 shadow-sm" role="alert">
+            <h4 class="alert-heading fw-bold">Ваша корзина пуста!</h4>
+            <p class="mb-3">Вы не можете оформить заказ, пока не добавите хотя бы один товар в каталоге.</p>
+            <hr>
+            <a href="{% url 'goods:shop' %}" class="btn btn-primary mt-2 fw-bold text-uppercase rounded-3">Перейти в каталог Pharma</a>
+        </div>
+    {% else %}
+        <!-- Сетка Bootstrap: делим экран на две колонки -->
+        <div class="row">
+            
+            <!-- ЛЕВАЯ КОЛОНКА: Контейнер для формы (занимает 7 блоков из 12) -->
+            <div class="col-lg-7 col-md-12 mb-4">
+                <div class="card shadow-sm p-4 border-0 rounded-3 bg-white">
+                    <h3 class="card-title h5 border-bottom pb-2 mb-3 fw-bold text-secondary">Данные покупателя</h3>
+                    
+                    <!-- ПОДКЛЮЧАЕМ НАШ HTMX-ФРАГМЕНТ ФОРМЫ -->
+                    {% include "orders/includes/_order_form.html" %}
+                    
+                </div>
+            </div>
+
+            <!-- ПРАВАЯ КОЛОНКА: Контейнер для чека (занимает 5 блоков из 12) -->
+            <div class="col-lg-5 col-md-12">
+                <div class="card shadow-sm p-4 border-0 rounded-3 bg-white position-sticky" style="top: 20px;">
+                    <h3 class="card-title h5 border-bottom pb-2 mb-3 fw-bold text-secondary">Ваш чек</h3>
+                    
+                    <!-- Список товаров из корзины (Динамический) -->
+                    <div class="cart-items-preview mb-3" style="max-height: 300px; overflow-y: auto;">
+                        
+                        <!-- Запускаем цикл по элементам корзины, подгруженным без N+1 запросов -->
+                        {% for item in cart_items %}
+                            <div class="d-flex justify-content-between align-items-center border-bottom py-3">
+                                <div class="d-flex align-items-center">
+                                    <!-- Вывод изображения товара -->
+                                    {% if item.product.image %}
+                                        <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}" class="rounded-3 me-3" style="width: 55px; height: 55px; object-fit: cover;">
+                                    {% else %}
+                                        <div class="bg-secondary-subtle rounded-3 me-3 d-flex align-items-center justify-content-center text-secondary" style="width: 55px; height: 55px; font-size: 24px;">
+                                            📦
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <div>
+                                        <!-- Реальное название товара -->
+                                        <h6 class="mb-0 small fw-bold text-dark">{{ item.product.name }}</h6>
+                                        <!-- Количество и цена на момент добавления -->
+                                        <small class="text-muted">{{ item.quantity }} шт. x {{ item.price_at_addition }} ₽</small>
+                                    </div>
+                                </div>
+                                <!-- Стоимость позиции через метод вашей модели CartItem -->
+                                <span class="fw-bold text-dark">{{ item.products_price }} ₽</span>
+                            </div>
+                        {% endfor %}
+
+                    </div>
+
+                    <!-- Блок итоговых сумм, вычисляемый методами вашей модели Cart -->
+                    <div class="border-top pt-3">
+                        <div class="d-flex justify-content-between mb-2 text-muted">
+                            <span>Всего товаров:</span>
+                            <!-- Динамическое общее количество штук в корзине -->
+                            <span class="fw-bold text-dark">{{ cart.total_quantity }} шт.</span>
+                        </div>
+                        <div class="d-flex justify-content-between h4 border-top pt-3 mt-2">
+                            <strong class="text-dark">Итого к оплате:</strong>
+                            <!-- Динамическая итоговая сумма всей корзины -->
+                            <strong class="text-success fw-bold">{{ cart.total_price }} ₽</strong>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+
+
+

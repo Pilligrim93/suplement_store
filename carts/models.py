@@ -9,8 +9,6 @@ class Cart(models.Model):
         on_delete=models.CASCADE, 
         null=True, blank=True           # Анонимный пользователь
     )
-    # Идентификация анонимных пользователей.
-    session_key = models.CharField(max_length=32, db_index=True, blank=True, null=True, verbose_name='Ключ сесии')
 
     # Дата создания 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
@@ -18,8 +16,7 @@ class Cart(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
 
 
-    def total_price(self): 
-        return  sum(item.products_price() for item in self.cartitem_set.all())
+
     
     def total_quantity(self):
         return sum(item.quantity for item in self.cartitem_set.all())

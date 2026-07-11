@@ -144,6 +144,7 @@ class UserProfileView(LoginRequiredMixin, UpdateView):
     success_url = reverse_lazy('users:profile')
 
     def get_object(self, queryset=None):
+        """Возвращает текущего пользователя"""
         return self.request.user
 
     def get_form(self, form_class=None):

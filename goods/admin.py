@@ -12,7 +12,10 @@ class ProductInline(admin.TabularInline):
 class CategoryAdmin(admin.ModelAdmin):
     # Слаг будет сам печататься из названия
     prepopulated_fields = {'slug': ('name',)}
-     # Подключаем список товаров
+
+    list_select_related = ['parent']
+
+    # Подключаем список товаров
     inlines = [ProductInline]
 
 @admin.register(Product)
