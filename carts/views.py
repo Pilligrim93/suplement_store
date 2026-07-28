@@ -3,7 +3,6 @@ from django.shortcuts import redirect, render
 from django.http import HttpRequest
 from carts.services import CartService
 
-# Create your views here.
 
 def cart_detail(request:HttpRequest):
     """Просмотр самой корзины и ее товаров"""
@@ -20,50 +19,45 @@ def cart_detail(request:HttpRequest):
     return render(request, 'carts/cart.html', context)
 
 
-def add_to_cart(request:HttpRequest):
-    """Добавление товара в корзину через CartService"""
+def cart_add_or_update(request:HttpRequest):
+    """Единый универсальный контроллер 
+    для добавления, увеличения и уменьшения товара в ОП"""
     if request.method == 'POST':
-        # Извлекаем ID из запроса так как в 
-        # целях безопасности мы не передаем данные через url
         product_id = request.POST.get('product_id')
+        quantity = request.POST.get('quantity', 1)
+       
 
         if product_id:
-            # Передали запрос для того чтобы класс 
-            # понимал что происходит все данные там о событиях
+            product_id = int(product_id)
+            quantity = int(quantity)
+
             cart_service = CartService(request)
+            cart_items = cart_service.get_items()
 
-            # Добавляем товар в один вызов: сервис сам заморозит цену,
-            # проверит остатки СУБД или запишет данные анонима в быстрый Redis!
-            cart_service.add_item(product_id=int(product_id), quantity=1)
+            merged_dict = {int(item['product_id']): item for item in cart_items}
+            
+            if product_id in merged_dict:
+                new_quantity = merged_dict[product_id]['quantity'] + quantity
+                if new_quantity <= 0:
+                    del merged_dict[product_id]
+                else:
+                    merged_dict[product_id]['quantity'] = new_quantity
+            else:
+                if quantity > 0:
+                    merged_dict[product_id] = {
+                        'product_id': product_id,
+                        'quantity': quantity
+                    }
 
-            messages.success(request, "Товар успешно добавлен в корзину!")
-
-    # Возвращаем пользователя обратно на ту страницу, где он был
-    return redirect(request.META.get('HTTP_REFERER', 'goods:shop'))
-
-
-def cart_update(request:HttpRequest):
-    """Изменение количества товара (+1/-1) в 
-    корзине через CartService (с поддержкой HTMX)"""
-    if request.method == 'POST':
-        product_id = request.POST.get('product_id')
-        # Получаем инфу о типе операции + -
-        operation = request.POST.get('operation')
-
-        if product_id and operation:
-            cart_service = CartService(request)
-
-            # Данные обновяться в Redis или Postgresql
-            cart_service.update_quantity(product_id=int(product_id), operation=operation)
+            cart_items = list(merged_dict.values())
+            cart_service.save_items(cart_items)
 
             # ЛОГИКА ДЛЯ HTMX
             if request.headers.get('HX-Request'):
-                # Получаем обьекты товаров
-                cart_items = cart_service.get_items()
-
                 # Вместо редиректа возвращаем ТОЛЬКО фрагмент таблицы
                 return render(request, 'carts/includes/included_cart.html', {'cart_items': cart_items})
-                    
+                
+            messages.success(request, "Корзина успешно обновлена!")
     # Если это не HTMX (например, отключен JS), делаем обычный редирект
     return redirect(request.META.get('HTTP_REFERER', 'carts:cart_detail'))
 
@@ -74,20 +68,24 @@ def remove_from_cart(request:HttpRequest):
         product_id = request.POST.get('product_id')
 
         if product_id:
-            # Запускаем наш сервис
+            product_id = int(product_id)
+
             cart_service = CartService(request)
-            # Удаление в Redis или Postgresql
-            cart_service.remove_item(product_id_delete=int(product_id))
+            cart_items = cart_service.get_items()
+
+            merged_dict = {int(item['product_id']): item for item in cart_items}
+            if product_id in merged_dict:
+                del merged_dict[product_id]
+
+            cart_items = list(merged_dict.values())
+            cart_service.save_items(cart_items)            
 
             # Если запрос от HTMX
             if request.headers.get('HX-Request'):
-                # Получаем обьекты товаров
-                cart_items = cart_service.get_items()
                 return render(request, 'carts/includes/included_cart.html', {'cart_items': cart_items})
         
-
     messages.success(request, "Товар успешно удален из корзины!")
     return redirect(request.META.get('HTTP_REFERER', 'carts:cart_detail'))
 
         
- 
+ # Переписываем этот код на тот что будет работать из redis!

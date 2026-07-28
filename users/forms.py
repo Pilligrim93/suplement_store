@@ -21,7 +21,7 @@ class ProfileForm(forms.ModelForm):
         model = get_user_model()        # <-- Теперь форма смотрит в общую модель User
         # Все эти поля теперь лежат в одной таблице, Django их легко найдет!
         fields = ['first_name', 'last_name', 'username', 'email', 'phone_number', 'image']
-
+        
 
 
 

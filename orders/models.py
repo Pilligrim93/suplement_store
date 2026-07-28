@@ -4,21 +4,21 @@ from django.contrib.auth import get_user_model
 from goods.models import Product 
 
 
-class OrderManager(models.Manager):
-    """Кастомный менеджер для ликвидации косяка N+1 запросов"""
-    def get_queryset(self):
-        # select_related сразу подтягивает данные пользователя в ОДИН SQL-запрос
-        return super().get_queryset().select_related('user')
+# class OrderManager(models.Manager):
+#     """Кастомный менеджер для ликвидации косяка N+1 запросов"""
+#     def get_queryset(self):
+#         # select_related сразу подтягивает данные пользователя в ОДИН SQL-запрос
+#         return super().get_queryset().select_related('user')
     
 
-class OrderItemManager(models.Manager):
-    """Кастомный менеджер для ликвидации косяка N+1 запросов 
-    сквозной JOIN всех 4-х таблиц разом"""
-    def get_queryset(self):
-        # select_related может принять несколько полей. 
-        # 4 Потому что 4-я таблица это и есть OrderItem
-        # order__user — сквозной прыжок. Тянет: Товар в чеке -> Чек -> Покупателя + сам Товар
-        return super().get_queryset().select_related('order__user', 'product')  
+# class OrderItemManager(models.Manager):
+#     """Кастомный менеджер для ликвидации косяка N+1 запросов 
+#     сквозной JOIN всех 4-х таблиц разом"""
+#     def get_queryset(self):
+#         # select_related может принять несколько полей. 
+#         # 4 Потому что 4-я таблица это и есть OrderItem
+#         # order__user — сквозной прыжок. Тянет: Товар в чеке -> Чек -> Покупателя + сам Товар
+#         return super().get_queryset().select_related('order__user', 'product')  
 
 
 class Order(models.Model):
@@ -74,7 +74,7 @@ class Order(models.Model):
 
     
     # ПОДКЛЮЧАЕМ НАШ УМНЫЙ МЕНЕДЖЕР:
-    objects = OrderManager()
+    # objects = OrderManager()
 
     class Meta:
         db_table = 'order'
@@ -99,7 +99,7 @@ class OrderItem(models.Model):
     quantity = models.PositiveIntegerField(default=1,  verbose_name="Количество")
 
     # Подключаем менеджера.
-    objects = OrderItemManager()
+    # objects = OrderItemManager()
 
     class Meta:
         db_table = 'order_item'

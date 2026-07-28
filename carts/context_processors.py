@@ -1,29 +1,19 @@
-from django.db.models import Sum
+
 from django.http import HttpRequest
-from carts.models import Cart
+from carts.services import CartService
 
 def cart_stats(request:HttpRequest):
+    """
+    Глобальный процессор контекста: поставляет общее количество и сумму 
+    товаров в корзине на абсолютно любую страницу сайта (Highload-версия)
+    """
+    # Запустили на сервис 
+    cart_service = CartService(request)
 
-    # Если не авторизирован и нет session_key
-    if not request.user.is_authenticated and not request.session.session_key:
-        return {'total_quantity': 0, 'total_price': 0}
-
-    # Проверка либо ты user либо session_key.
-    lookup = {'user': request.user} if request.user.is_authenticated else {'session_key':request.session.session_key}
-    # Получаем корзину по user or session_key и берем самую первую если она там не одна.
-    cart = Cart.objects.filter(**lookup).first()
-
-    # Если корзина существует то получааем общее количесвто и цену.
-    if cart:
-        total_quantity = cart.total_quantity()
-        total_price = cart.total_price()
-    else:
-        total_quantity = 0
-        total_price = 0
-    # Словарь для данных в шаблон.
+    # Вызываем быстрые гибридные методы подсчета (БЕЗ бага N+1 и с поддержкой Redis!
     return {
-        'total_quantity': total_quantity,
-        'total_price' : total_price
+        'total_quantity': cart_service.total_quantity(),
+        'total_price': cart_service.total_price(),
     }
     
 

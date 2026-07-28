@@ -1,64 +1,47 @@
 
-import uuid
 
-from django.shortcuts import render 
+import uuid
+from django.contrib import messages
+from django.shortcuts import redirect, render 
 
 from django.urls import reverse_lazy
 from django.views.generic import CreateView
 
+from carts.services import CartService
 from orders.forms import CreateOrderForm
 from orders.models import Order
 from carts.models import Cart
 
 
-class OrderCreateView(CreateView):
+def create_order_view(request):
     """
-    Контроллер для отображения страницы оформления заказа.
-    Доступен всем: и авторизованным пользователям, и анонимам.
+    Супербыстрый диспетчер оформления заказа (FBV).
+    Полностью контролирует Redis, Lua и Celery, не нагружая PostgreSQL.
     """
-    # Переопределили переменные для работы CreateView
-    model = Order
-    form_class = CreateOrderForm
-    template_name = 'orders/create_order.html'
+    cart_service = CartService(request)
+    cart_items = cart_service.get_items()
 
-    # Куда перенаправим при успехе (пока заглушка на главную магазина)
-    success_url = reverse_lazy('goods:index')
+    if request.method == "GET":
+        if not cart_items:
+            messages.error(request,"Ваша корзина пуста!")
+            return redirect('carts:cart_detail')
 
-    def get_context_data(self, **kwargs) :
-        """Передаем элементы существующей корзины"""
+        form = Create
 
         # CreateView делиться с нами данными
         context = super().get_context_data(**kwargs)
         request = self.request
 
-        # === ДОБАВЛЯЕМ СВЕЖИЙ КЛЮЧ ПРИ ПЕРВОЙ ЗАГРУЗКЕ СТРАНИЦЫ ===
-        #context['idempotency_key'] = str(uuid.uuid4())
-
-
-        # 1. Поиск корзины user or session_key
-        if request.user.is_authenticated:
-            lookup_filter = {'user': request.user}
-        else:
-            # Если у анонима есть ключ сессии, ищем по нему. Если нет — фильтр будет пустым
-            session_key = request.session.session_key
-            lookup_filter = {'session_key': session_key} if session_key else None
-
-        # 2. Ищем корзину только если фильтр успешно сформирован
-        cart = None
-        if lookup_filter:
-            cart = Cart.objects.filter(**lookup_filter).prefetch_related('cartitem_set__product').first()
+        # Идендификатор события для действия по кнопке оформить заказ
+        context['idempotency_key'] = str(uuid.uuid4())
+    
+        cart_service = CartService(request)
+        cart_items = cart_service.get_items()
         
-        # Заполняем данные context корзиной для страницы
-        context['cart'] = cart
+        context['cart_items'] = cart_items
+        context['total_quantity'] = cart_service.total_quantity()
+        context['total_price'] = cart_service.total_price()
 
-        # 3. Кладем данные в контекст страницы
-        if cart:
-            # Решена проблема N+1, кладем в context данные содержимое корзины.
-            context['cart_items'] = cart.cartitem_set.all().select_related('product')
-        else:
-            # Кладем в context данные содержимое корзины.
-            context['cart_items'] = []
-        # Возвращаем напичканый данными context для использования в html
         return context
     
     def form_invalid(self, form):
@@ -85,3 +68,10 @@ class OrderCreateView(CreateView):
             # Просто возвращаем чистый HTML формы без ошибок
             return render(self.request, 'orders/includes/_order_form.html', {'form': form})  
         return super().form_valid(form)
+    
+
+  
+
+
+
+ 

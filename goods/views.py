@@ -78,19 +78,9 @@ def shop(request):
 
     
 
-
-
-
 def shop_single(request, slug):
     product = get_object_or_404(Product, slug=slug)
     return render(request, "goods/shop-single.html", {'product': product})
-
-
-
-
-# def cart(request):
-#     return render(request, "carts/cart.html")
-
 
 
 def checkout(request):

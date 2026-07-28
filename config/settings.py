@@ -212,3 +212,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Забудь про стандартного юзера, теперь главный — мой из приложения users
 AUTH_USER_MODEL = 'users.User'
+
+
+
+# os.getenv будет подргружать из .env  
+REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
+REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
