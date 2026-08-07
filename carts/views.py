@@ -1,91 +1,119 @@
+import uuid
 from django.contrib import messages
 from django.shortcuts import redirect, render
 from django.http import HttpRequest
 from carts.services import CartService
 
 
-def cart_detail(request:HttpRequest):
-    """Просмотр самой корзины и ее товаров"""
-    # Создаем обьект - класс для работы с Postgresql и Redis
-    cart_service = CartService(request)
-    # Товары в корзине
-    cart_items = cart_service.get_items()
+def _get_cart_service(request: HttpRequest):
+    """Внутренний хелпер: определяет владельца корзины и ленивый UUID"""
+    if request.user.is_authenticated:
+        return CartService(user_id=request.user.id), None
 
-    # Для отображения и работы товаров в шаблоне.
-    context = {
-        'cart_items': cart_items,
-    }
-    # Обычная перезагрузка страницы
-    return render(request, 'carts/cart.html', context)
+    guest_token = request.COOKIES.get("guest_token")
+    token = guest_token or str(uuid.uuid4()) 
+    return CartService(guest_token=token), token
 
 
-def cart_add_or_update(request:HttpRequest):
-    """Единый универсальный контроллер 
-    для добавления, увеличения и уменьшения товара в ОП"""
-    if request.method == 'POST':
-        product_id = request.POST.get('product_id')
-        quantity = request.POST.get('quantity', 1)
-       
+def cart_view(request: HttpRequest):
+    """Просмотр самой корзины и её товаров"""
+    if not request.user.is_authenticated and not request.COOKIES.get("guest_token"):
+        return render(request, 'carts/cart.html', {'cart_items': []})
 
-        if product_id:
-            product_id = int(product_id)
-            quantity = int(quantity)
+    cart_service, token =  _get_cart_service(request)
+    response = render(request, 'carts/cart.html', {'cart_items': cart_service.get_items()})
 
-            cart_service = CartService(request)
-            cart_items = cart_service.get_items()
+    # httponly=True (Железный щит от XSS-атак и кражи корзин)
+    # samesite='Lax' (Защита от CSRF-атак)
+    if token:
+        response.set_cookie('guest_token', token, max_age=2592000, httponly=True, samesite='Lax')
 
-            merged_dict = {int(item['product_id']): item for item in cart_items}
-            
-            if product_id in merged_dict:
-                new_quantity = merged_dict[product_id]['quantity'] + quantity
-                if new_quantity <= 0:
-                    del merged_dict[product_id]
-                else:
-                    merged_dict[product_id]['quantity'] = new_quantity
-            else:
-                if quantity > 0:
-                    merged_dict[product_id] = {
-                        'product_id': product_id,
-                        'quantity': quantity
-                    }
+    return response
 
-            cart_items = list(merged_dict.values())
-            cart_service.save_items(cart_items)
+def cart_add_or_update(request: HttpRequest):
+    """Единый контроллер для добавления и изменения количества товаров."""
 
-            # ЛОГИКА ДЛЯ HTMX
-            if request.headers.get('HX-Request'):
-                # Вместо редиректа возвращаем ТОЛЬКО фрагмент таблицы
-                return render(request, 'carts/includes/included_cart.html', {'cart_items': cart_items})
-                
-            messages.success(request, "Корзина успешно обновлена!")
-    # Если это не HTMX (например, отключен JS), делаем обычный редирект
-    return redirect(request.META.get('HTTP_REFERER', 'carts:cart_detail'))
+    if not (raw_product_id := request.POST.get('product_id')):
+        return redirect(request.META.get('HTTP_REFERER', 'carts:cart_view'))
 
+    # try/except защищает от текстового мусора хакеров в POST
+    try:
+        product_id = int(raw_product_id)
+        quantity = int(request.POST.get('quantity', 1))     
+    except ValueError:
+        return redirect(request.META.get('HTTP_REFERER', 'carts:cart_view'))
 
-def remove_from_cart(request:HttpRequest):
-    """Полное удаление товарной позиции из корзины (с поддержкой HTMX)"""
-    if request.method == 'POST':
-        product_id = request.POST.get('product_id')
+    # Предохранитель от холостых кликов (если прилетел 0 — ничего не делаем)
+    if quantity == 0:
+        return redirect(request.META.get('HTTP_REFERER', 'carts:cart_view'))
 
-        if product_id:
-            product_id = int(product_id)
+    cart_service, token = _get_cart_service(request)
+    
+    # Провекра на случай отсутствие товара в каталоге
+    if not cart_service.add_or_update_item(product_id, quantity):
+        messages.error(request, "Товар не существует или удален из каталога!")
+        return redirect(request.META.get('HTTP_REFERER', 'carts:cart_view'))
 
-            cart_service = CartService(request)
-            cart_items = cart_service.get_items()
+    context = {'cart_items': cart_service.get_items()}
+    
+    
+    if request.headers.get('HX-Request'):
+        response = render(request, 'carts/includes/included_cart.html', context)
+    else:
+        messages.success(request, "Корзина успешно обновлена!")
+        response = redirect(request.META.get('HTTP_REFERER', 'carts:cart_view'))
 
-            merged_dict = {int(item['product_id']): item for item in cart_items}
-            if product_id in merged_dict:
-                del merged_dict[product_id]
-
-            cart_items = list(merged_dict.values())
-            cart_service.save_items(cart_items)            
-
-            # Если запрос от HTMX
-            if request.headers.get('HX-Request'):
-                return render(request, 'carts/includes/included_cart.html', {'cart_items': cart_items})
+    # Твоё скользящее окно: если это аноним — продлеваем ему куку на 30 дней при КАЖДОЙ активности
+    if token:
+        response.set_cookie('guest_token', token, max_age=2592000, httponly=True, samesite='Lax')
         
-    messages.success(request, "Товар успешно удален из корзины!")
-    return redirect(request.META.get('HTTP_REFERER', 'carts:cart_detail'))
+    return response
+      
+def remove_from_cart(request: HttpRequest):
+
+    # Защита
+    if not (raw_product_id := request.POST.get('product_id')):
+        return redirect(request.META.get('HTTP_REFERER', 'carts:cart_view'))
+
+    # Защита
+    if not request.user.is_authenticated and not request.COOKIES.get("guest_token"):
+        return redirect(request.META.get('HTTP_REFERER', 'carts:cart_view'))
+
+    # try/except от падения сервера, если прислали битый ID товара
+    try:
+        product_id = int(raw_product_id)
+    except ValueError:
+        return redirect(request.META.get('HTTP_REFERER', 'carts:cart_view'))
+
+    cart_service, token = _get_cart_service(request)
+    cart_service.remove_item(product_id)
+    context = {'cart_items': cart_service.get_items()}
+
+    if request.headers.get("HX-Request"):
+        response = render(request, 'carts/includes/included_cart.html', context)
+    else:
+        messages.success(request, 'Товар успешно удален из корзины!')
+        response = redirect(request.META.get('HTTP_REFERER', 'carts:cart_view'))
+        
+    if token:
+        response.set_cookie('guest_token', token, max_age=2592000, httponly=True, samesite='Lax')
+
+    return response
+
+
+
+
+
+
+
 
         
- # Переписываем этот код на тот что будет работать из redis!
+
+
+
+
+
+
+
+
+

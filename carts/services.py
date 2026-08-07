@@ -104,7 +104,8 @@ class CartService:
                         "image": catalog_fields[2] or "",
                     }
                 )
-
+        # Обновляем время жизни корзины при активности
+        self.redis_client.expire(self.cart_key, self.ttl)
         self._cached_items = enriched_items
         return self._cached_items
 
@@ -121,6 +122,7 @@ class CartService:
         if new_qty <= 0:
             self.redis_client.hdel(self.cart_key, str(product_id))
 
+        # Обновляем время жизни корзины при активности
         self.redis_client.expire(self.cart_key, self.ttl)
         self._cached_items = None
         return True
@@ -128,6 +130,9 @@ class CartService:
     def remove_item(self, product_id: int) -> None:
         """Точечное моментальное удаление всей товарной позиции из Хэша"""
         self.redis_client.hdel(self.cart_key, str(product_id))
+        
+        # Обновляем время жизни корзины при активности
+        self.redis_client.expire(self.cart_key, self.ttl)
         self._cached_items = None
 
     def total_quantity(self) -> int:
