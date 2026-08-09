@@ -20,5 +20,5 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-# Копируем весь остальной код вашего интернет-магазина Pharma в контейнер
+# Копируем весь остальной код моего интернет-магазина Pharma в контейнер
 COPY . /app/

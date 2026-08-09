@@ -130,7 +130,7 @@
             {% endif %}
             
             {# 3. Корзина (Класс bag возвращен на место) #}
-            <a href="{% url 'carts:cart_detail' %}" class="icons-btn d-inline-block bag">
+            <a href="{% url 'carts:cart_add_or_update' %}" class="icons-btn d-inline-block bag">
               <span class="icon-shopping-bag"></span>
               <!-- Если товаров нет, покажем 0 -->
               <!-- Добавили id, чтобы HTMX мог найти это число -->

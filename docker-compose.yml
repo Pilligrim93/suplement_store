@@ -1,11 +1,9 @@
 version: '3.8'
 
 services:
-  # 1. Сверхбыстрый буфер Redis — сердце нашей защиты от Race Conditions
   redis:
     image: redis:7.2-alpine
     container_name: pharma_redis
-    # Включили AOF и RDB (BGSAVE) для сохранения данных
     command: redis-server --appendonly yes --save 900 1 --save 300 10 --save 60 10
     ports:
       - "6379:6379"
@@ -13,11 +11,25 @@ services:
       - pharma_redis_data:/data
     restart: always
 
-  # 2. Наш интернет-магазин на Django
+  # МОЙ НОВЫЙ ЖИВОЙ ЩИТ: Пулер сокетов PgBouncer
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: pharma_pgbouncer
+    environment:
+      # Собираем строку подключения к моему внешнему Postgres через хост-машину
+      - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${PGBOUNCER_BACKEND_HOST}:${PGBOUNCER_BACKEND_PORT}/${DB_NAME}
+      - POOL_MODE=transaction
+      - DEFAULT_POOL_SIZE=20
+      - RESERVE_POOL_SIZE=10
+      - MAX_CLIENT_CONN=1000
+      - SHOW_DATABASES=0
+    ports:
+      - "6432:6432"
+    restart: always
+
   web:
     build: .
     container_name: pharma_django
-    # Команда запуска сервера внутри контейнера Linux
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
@@ -29,13 +41,12 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
     depends_on:
       - redis
+      - pgbouncer #  Ждём, пока пулер откроет вечное соединение к СУБД
     restart: always
 
-  # 3. Фоновые воркеры Celery — обрабатывают заказы и шлют email
   celery:
     build: .
     container_name: pharma_celery
-    # Запуск Celery через вашу корневую папку настроек config
     command: celery -A config worker --loglevel=info
     volumes:
       - .:/app
@@ -45,8 +56,75 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
     depends_on:
       - redis
+      - pgbouncer #  Воркеры тоже пойдут строго через пулер сокетов
       - web
     restart: always
 
 volumes:
   pharma_redis_data:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# version: '3.8'
+
+# services:
+#   # 1. Сверхбыстрый буфер Redis — сердце нашей защиты от Race Conditions
+#   redis:
+#     image: redis:7.2-alpine
+#     container_name: pharma_redis
+#     # Включили AOF и RDB (BGSAVE) для сохранения данных
+#     command: redis-server --appendonly yes --save 900 1 --save 300 10 --save 60 10
+#     ports:
+#       - "6379:6379"
+#     volumes:
+#       - pharma_redis_data:/data
+#     restart: always
+
+#   # 2. Наш интернет-магазин на Django
+#   web:
+#     build: .
+#     container_name: pharma_django
+#     # Команда запуска сервера внутри контейнера Linux
+#     command: python manage.py runserver 0.0.0.0:8000
+#     volumes:
+#       - .:/app
+#     ports:
+#       - "8000:8000"
+#     env_file:
+#       - .env
+#     environment:
+#       - CELERY_BROKER_URL=redis://redis:6379/0
+#     depends_on:
+#       - redis
+#     restart: always
+
+#   # 3. Фоновые воркеры Celery — обрабатывают заказы и шлют email
+#   celery:
+#     build: .
+#     container_name: pharma_celery
+#     # Запуск Celery через вашу корневую папку настроек config
+#     command: celery -A config worker --loglevel=info
+#     volumes:
+#       - .:/app
+#     env_file:
+#       - .env
+#     environment:
+#       - CELERY_BROKER_URL=redis://redis:6379/0
+#     depends_on:
+#       - redis
+#       - web
+#     restart: always
+
+# volumes:
+#   pharma_redis_data:

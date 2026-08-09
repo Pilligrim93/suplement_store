@@ -69,7 +69,7 @@
                 <p class="product-price">{{ product.price }} руб.</p>
 
                 <!-- 4. Кнопка «Купить», которой у тебя не было в магазине -->
-                <form action="{% url 'carts:add_to_cart' %}" method="POST">
+                <form action="{% url 'carts:cart_add_or_update' %}" method="POST">
                   {% csrf_token %}
 
                   <!-- Передаем ID товара скрыто от глаз пользователя -->

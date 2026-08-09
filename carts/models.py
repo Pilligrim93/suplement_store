@@ -15,8 +15,6 @@ class Cart(models.Model):
     # Дата обновления
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
 
-
-
     
     def total_quantity(self):
         return sum(item.quantity for item in self.cartitem_set.all())

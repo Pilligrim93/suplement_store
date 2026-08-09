@@ -101,6 +101,7 @@ class CartService:
                         "quantity": qty,
                         "name": catalog_fields[0],
                         "price": price,
+                        "total_price_line": qty * price,
                         "image": catalog_fields[2] or "",
                     }
                 )
@@ -136,14 +137,12 @@ class CartService:
         self._cached_items = None
 
     def total_quantity(self) -> int:
-        """Счетчик штук товаров в ОЗУ бэкенда БЕЗ повторных сетевых запросов"""
-        items = self.get_items()
-        return sum(item["quantity"] for item in items)
+        """Счетчик штук товаров в ОП бэкенда БЕЗ повторных сетевых запросов"""
+        return sum(item["quantity"] for item in self.get_items())
 
     def total_price(self) -> int:
         """Счетчик суммы корзины (0 холостых запросов к СУБД и Redis)"""
-        items = self.get_items()
-        return sum(item["price"] * item["quantity"] for item in items)
+        return sum(item["total_price_line"] for item in self.get_items())
 
     def clear(self) -> None:
         """Полное удаление ключа корзины клиента из ОП"""
@@ -168,7 +167,7 @@ class CartService:
 
 
 
-
+# Запустить и посмотреть как работает магазин а так же решить проблему если она есть с суммой в строке товара
 
 
 
