@@ -110,7 +110,10 @@ def remove_from_cart(request: HttpRequest):
         
 
 
-
+# Инфраструктура настроена под pool PgBouncer для postgresql дальше редактирование и написание логики goods/service
+# Разбор темы cache hash полей и html
+# Разбор goods/service
+# Не забудь про редактирвоание шаблонов части шаблонов больше чем их родители
 
 
 
