@@ -1,19 +1,93 @@
-#python stuff
+
+# 1. PYTHON & VIRTUAL ENVIRONMENT
+# =================================================================
 .venv/
-.pylintrc
+venv/
+ENV/
+env/
 __pycache__/
-cache/
+*.pyc
+*.pyo
+*.pyd
+*.so
+.pylintrc
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
-#django stuff
-.vscode
-.idea
 
-#django stuff
+# 2. DJANGO SPECIFIC
+# =================================================================
 db.sqlite3
+db.sqlite3-journal
 media/
-static
+static/
+staticfiles/
+*.mo
+*.po
+local_settings.py
+*.log
+*.pid
 
-# Секреты и настройки
+
+# 3. HIGHLOAD INFRASTRUCTURE: REDIS PERSISTENCE (3 INSTANCES)
+# =================================================================
+# Блокируем дампы RDB и AOF-логи всех трёх Redis (корзина, кэш, брокер)
+*.rdb
+*.aof
+dump.rdb
+appendonlydir/
+*.temp
+
+
+# 4. CELERY & TASK QUEUES
+# =================================================================
+celerybeat-schedule
+celerybeat.pid
+celeryd.pid
+*.db
+
+
+# 5. DEVOPS & CONTAINERS
+# =================================================================
+.docker/
+docker-compose.override.yml
+*.log
+logs/
+*.pid
+
+
+# 6. SECURITY & ENVIRONMENT SECRETS (CRITICAL)
+# =================================================================
+# Секреты, пароли СУБД, SSH-туннели, ключи шифрования
 .env
-# Файлы данных (если они огромные или временные)
+.env.local
+.env.*
+*.pem
+*.key
+*.crt
 data.json
+secrets.json
+
+
+# 7. IDE & OPERATING SYSTEM
+# =================================================================
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+
+# 8. TEMPORARY & CACHE FILES
+# =================================================================
+*.tmp
+*.temp
+.cache/
+.parcel-cache/
+*.sqlite3-journal
