@@ -1,45 +1,58 @@
 version: '3.8'
 
 services:
-  # === ИНСТАНС 1: СЕЙФ КОРЗИН (Броня данных, AOF+RDB) ===
+  # =================================================================
+  # ИНСТАНС 1: СЕЙФ БИЗНЕС-ДАННЫХ (Корзины, гостевые токены, остатки, кэш-каталог)
+  # =================================================================
   redis_cart:
     image: redis:7.2-alpine
     container_name: pharma_redis_cart
-    # Я включаю жесткое логирование AOF и noeviction, чтобы корзины никогда не стерлись
-    command: redis-server --appendonly yes --save 900 1 --save 300 10 --maxmemory-policy noeviction
+    # МАКСИМАЛЬНАЯ БРОНЯ: Включаю жесткий секундный сброс AOF и ленивый RDB-снапшот.
+    # Автоудаление NOEVICTION — Redis зубами держит корзины и остатки товаров, защищая от OOM.
+    command: redis-server --appendonly yes --appendfsync everysec --save 900 1 --maxmemory-policy noeviction
     ports:
       - "6379:6379"
     volumes:
       - pharma_redis_cart_data:/data
     restart: always
 
-  # === ИНСТАНС 2: ПАСПОРТА ТОВАРОВ КАТАЛОГА (Легкий RDB) ===
-  redis_catalog:
-    image: redis:7.2-alpine
-    container_name: pharma_redis_catalog
-    # Я убираю тяжелый AOF, оставляю только редкий RDB-снапшот на случай перезагрузки
-    command: redis-server --appendonly no --save 900 1 --maxmemory-policy noeviction
-    ports:
-      - "6380:6380"
-    volumes:
-      - pharma_redis_catalog_data:/data
-    restart: always
-
-  # === ИНСТАНС 3: КЭШ ШАБЛОНОВ И ВЁРСТКИ (Максимальная скорость, LRU-очистка, БЕЗ диска) ===
+  # =================================================================
+  # ИНСТАНС 2: КЭШ ШАБЛОНОВ И ВЁРСТКИ HTML (Только Server-Side Rendering)
+  # =================================================================
   redis_html:
     image: redis:7.2-alpine
     container_name: pharma_redis_html
-    # Я полностью вырезаю сохранение на диск и включаю авто-выброс старого кэша при нехватке ОЗУ
+    # ТАКТИКА СКОРОСТИ: Диск полностью ОТКЛЮЧЕН (appendonly no, save ""). Запись на диск равна 0.
+    # Политика ALLKEYS-LRU: При нехватке ОЗУ Redis сам бесшумно выкинет старые забытые HTML-страницы.
     command: redis-server --appendonly no --save "" --maxmemory-policy allkeys-lru
     ports:
-      - "6381:6381"
+      - "6380:6380"
+    # Диск volume не нужен, так как этот кэш временный и легко пересобирается силами Django
     restart: always
 
-  # === ЖИВОЙ ЩИТ СУБД ===
+  # =================================================================
+  # ИНСТАНС 3: БРОКЕР ОЧЕРЕДЕЙ И ФОНОВЫХ ЗАДАЧ CELERY
+  # =================================================================
+  redis_celery:
+    image: redis:7.2-alpine
+    container_name: pharma_redis_celery
+    # ЗАЩИТА ОТ ПОТЕРЬ ЗАКАЗОВ: Включаю секундный AOF и ленивый RDB, чтобы задачи не стерлись при сбое.
+    # Автоудаление NOEVICTION: Задачи обязаны копиться, пока воркеры их не обработают. Стирать их нельзя!
+    command: redis-server --appendonly yes --appendfsync everysec --save 900 1 --maxmemory-policy noeviction
+    ports:
+      - "6381:6381"
+    volumes:
+      - pharma_redis_celery_data:/data
+    restart: always
+
+  # =================================================================
+  # ЖИВОЙ ЩИТ СУБД: ПУЛЕР СОКЕТОВ PGBOUNCER (Запирает SSH-туннель на хосте)
+  # =================================================================
   pgbouncer:
     image: edoburu/pgbouncer:latest
     container_name: pharma_pgbouncer
     environment:
+      # Направляю пулер на мой внешний PostgreSQL через host.docker.internal:5432
       - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${PGBOUNCER_BACKEND_HOST}:${PGBOUNCER_BACKEND_PORT}/${DB_NAME}
       - POOL_MODE=transaction
       - DEFAULT_POOL_SIZE=20
@@ -50,7 +63,9 @@ services:
       - "6432:6432"
     restart: always
 
-  # === ВЕБ-СЕРВЕР DJANGO ===
+  # =================================================================
+  # ВЕБ-СЕРВЕР DJANGO
+  # =================================================================
   web:
     build: .
     container_name: pharma_django
@@ -62,16 +77,18 @@ services:
     env_file:
       - .env
     environment:
-      # Я направляю брокер Celery-задач (очередь) на инстанс корзин (или можно выделить под задачи БД 0)
-      - CELERY_BROKER_URL=redis://redis_cart:6379/0
+      # Направляю отправку задач строго в ИЗОЛИРОВАННЫЙ 3-й инстанс на порт 6382!
+      - CELERY_BROKER_URL=redis://redis_celery:6382/0
     depends_on:
       - redis_cart
-      - redis_catalog
       - redis_html
+      - redis_celery
       - pgbouncer
     restart: always
 
-  # === АСИНХРОННЫЕ ВОРКЕРЫ CELERY ===
+  # =================================================================
+  # АСИНХРОННЫЕ ВОРКЕРЫ CELERY
+  # =================================================================
   celery:
     build: .
     container_name: pharma_celery
@@ -81,18 +98,20 @@ services:
     env_file:
       - .env
     environment:
-      - CELERY_BROKER_URL=redis://redis_cart:6379/0
+      # Воркеры слушают и выгребают задачи тоже строго из 3-го инстанса на порту 6382
+      - CELERY_BROKER_URL=redis://redis_celery:6382/0
     depends_on:
       - redis_cart
-      - redis_catalog
       - redis_html
+      - redis_celery
       - pgbouncer
       - web
     restart: always
 
 volumes:
   pharma_redis_cart_data:
-  pharma_redis_catalog_data:
+  pharma_redis_celery_data: # Создаю вечный диск под лог-файлы фоновых задач
+
 
 
 

@@ -4,7 +4,7 @@ from orders.services import REDIS_POOL
 
 
 class CartService:
-    # Твой эталонный, вычищенный Lua-скрипт слияния корзин со всеми индексами
+
     _LUA_MERGE_SCRIPT = """
     -- [[ HGETALL - все товары корзины,  KEYS[1] - аноним ]]
     local guest_cart = redis.call('HGETALL', KEYS[1])
@@ -167,7 +167,6 @@ class CartService:
 
 
 
-# Запустить и посмотреть как работает магазин а так же решить проблему если она есть с суммой в строке товара
 
 
 
