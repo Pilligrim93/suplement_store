@@ -2,13 +2,13 @@ version: '3.8'
 
 services:
   # =================================================================
-  # ИНСТАНС 1: СЕЙФ БИЗНЕС-ДАННЫХ (Корзины, гостевые токены, остатки, кэш-каталог)
+  # ИНСТАНС 1: СЕЙФ БИЗНЕС-ДАННЫХ (Корзины, гостевые токены, ключи идемпотентности, первичные остатки и лог-потоки Streams)
   # =================================================================
   redis_cart:
     image: redis:7.2-alpine
     container_name: pharma_redis_cart
-    # МАКСИМАЛЬНАЯ БРОНЯ: Включаю жесткий секундный сброс AOF и ленивый RDB-снапшот.
-    # Автоудаление NOEVICTION — Redis зубами держит корзины и остатки товаров, защищая от OOM.
+    # МАКСИМАЛЬНАЯ БРОНЯ: Жесткий секундный сброс AOF и ленивый RDB-снапшот.
+    # Автоудаление NOEVICTION — Redis зубами держит корзины, остатки и лог-потоки Streams, защищая от OOM.
     command: redis-server --appendonly yes --appendfsync everysec --save 900 1 --maxmemory-policy noeviction
     ports:
       - "6379:6379"
@@ -36,13 +36,28 @@ services:
   redis_celery:
     image: redis:7.2-alpine
     container_name: pharma_redis_celery
-    # ЗАЩИТА ОТ ПОТЕРЬ ЗАКАЗОВ: Включаю секундный AOF и ленивый RDB, чтобы задачи не стерлись при сбое.
-    # Автоудаление NOEVICTION: Задачи обязаны копиться, пока воркеры их не обработают. Стирать их нельзя!
+    # ЗАЩИТА ЗАДАЧ ОТ ПОТЕРЬ: Секундный AOF и ленивый RDB, чтобы финансовые задачи не стерлись при сбое питания.
+    # Автоудаление NOEVICTION: Задачи обязаны копиться в ОЗУ, пока воркеры их не пережерт. Стирать их нельзя!
     command: redis-server --appendonly yes --appendfsync everysec --save 900 1 --maxmemory-policy noeviction
     ports:
       - "6381:6381"
     volumes:
       - pharma_redis_celery_data:/data
+    restart: always
+
+  # =================================================================
+  # ИНСТАНС 4: ДВИЖОК КАТАЛОГА ТОВАРОВ И УЛЬТРА-ПОИСКА (RediSearch Модуль)
+  # =================================================================
+  redis_search:
+    image: redis/redis-stack-server:latest
+    container_name: pharma_redis_search
+    # СБАЛАНСИРОВАННАЯ ЗАЩИТА: Отключаем тяжелый AOF, оставляем только ленивый RDB-снапшот раз в 15 минут.
+    # Автоудаление NOEVICTION: Паспорта каталога и поисковые индексы RediSearch должны лежать в памяти железно.
+    command: redis-server --appendonly no --save 900 1 --maxmemory-policy noeviction
+    ports:
+      - "6382:6382"
+    volumes:
+      - pharma_redis_search_data:/data
     restart: always
 
   # =================================================================
@@ -77,12 +92,13 @@ services:
     env_file:
       - .env
     environment:
-      # Направляю отправку задач строго в ИЗОЛИРОВАННЫЙ 3-й инстанс на порт 6382!
-      - CELERY_BROKER_URL=redis://redis_celery:6382/0
+      # Направляю отправку задач строго в ИЗОЛИРОВАННЫЙ 3-й инстанс на последовательный порт 6381!
+      - CELERY_BROKER_URL=redis://redis_celery:6381/0
     depends_on:
       - redis_cart
       - redis_html
       - redis_celery
+      - redis_search
       - pgbouncer
     restart: always
 
@@ -98,12 +114,13 @@ services:
     env_file:
       - .env
     environment:
-      # Воркеры слушают и выгребают задачи тоже строго из 3-го инстанса на порту 6382
-      - CELERY_BROKER_URL=redis://redis_celery:6382/0
+      # Воркеры слушают и выгребают задачи тоже строго из 3-го инстанса на порту 6381
+      - CELERY_BROKER_URL=redis://redis_celery:6381/0
     depends_on:
       - redis_cart
       - redis_html
       - redis_celery
+      - redis_search
       - pgbouncer
       - web
     restart: always
@@ -111,137 +128,4 @@ services:
 volumes:
   pharma_redis_cart_data:
   pharma_redis_celery_data: # Создаю вечный диск под лог-файлы фоновых задач
-
-
-
-
-# version: '3.8'
-
-# services:
-#   redis:
-#     image: redis:7.2-alpine
-#     container_name: pharma_redis
-#     command: redis-server --appendonly yes --save 900 1 --save 300 10 --save 60 10
-#     ports:
-#       - "6379:6379"
-#     volumes:
-#       - pharma_redis_data:/data
-#     restart: always
-
-#   # МОЙ НОВЫЙ ЖИВОЙ ЩИТ: Пулер сокетов PgBouncer
-#   pgbouncer:
-#     image: edoburu/pgbouncer:latest
-#     container_name: pharma_pgbouncer
-#     environment:
-#       # Собираем строку подключения к моему внешнему Postgres через хост-машину
-#       - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${PGBOUNCER_BACKEND_HOST}:${PGBOUNCER_BACKEND_PORT}/${DB_NAME}
-#       - POOL_MODE=transaction
-#       - DEFAULT_POOL_SIZE=20
-#       - RESERVE_POOL_SIZE=10
-#       - MAX_CLIENT_CONN=1000
-#       - SHOW_DATABASES=0
-#     ports:
-#       - "6432:6432"
-#     restart: always
-
-#   web:
-#     build: .
-#     container_name: pharma_django
-#     command: python manage.py runserver 0.0.0.0:8000
-#     volumes:
-#       - .:/app
-#     ports:
-#       - "8000:8000"
-#     env_file:
-#       - .env
-#     environment:
-#       - CELERY_BROKER_URL=redis://redis:6379/0
-#     depends_on:
-#       - redis
-#       - pgbouncer #  Ждём, пока пулер откроет вечное соединение к СУБД
-#     restart: always
-
-#   celery:
-#     build: .
-#     container_name: pharma_celery
-#     command: celery -A config worker --loglevel=info
-#     volumes:
-#       - .:/app
-#     env_file:
-#       - .env
-#     environment:
-#       - CELERY_BROKER_URL=redis://redis:6379/0
-#     depends_on:
-#       - redis
-#       - pgbouncer #  Воркеры тоже пойдут строго через пулер сокетов
-#       - web
-#     restart: always
-
-# volumes:
-#   pharma_redis_data:
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# version: '3.8'
-
-# services:
-#   # 1. Сверхбыстрый буфер Redis — сердце нашей защиты от Race Conditions
-#   redis:
-#     image: redis:7.2-alpine
-#     container_name: pharma_redis
-#     # Включили AOF и RDB (BGSAVE) для сохранения данных
-#     command: redis-server --appendonly yes --save 900 1 --save 300 10 --save 60 10
-#     ports:
-#       - "6379:6379"
-#     volumes:
-#       - pharma_redis_data:/data
-#     restart: always
-
-#   # 2. Наш интернет-магазин на Django
-#   web:
-#     build: .
-#     container_name: pharma_django
-#     # Команда запуска сервера внутри контейнера Linux
-#     command: python manage.py runserver 0.0.0.0:8000
-#     volumes:
-#       - .:/app
-#     ports:
-#       - "8000:8000"
-#     env_file:
-#       - .env
-#     environment:
-#       - CELERY_BROKER_URL=redis://redis:6379/0
-#     depends_on:
-#       - redis
-#     restart: always
-
-#   # 3. Фоновые воркеры Celery — обрабатывают заказы и шлют email
-#   celery:
-#     build: .
-#     container_name: pharma_celery
-#     # Запуск Celery через вашу корневую папку настроек config
-#     command: celery -A config worker --loglevel=info
-#     volumes:
-#       - .:/app
-#     env_file:
-#       - .env
-#     environment:
-#       - CELERY_BROKER_URL=redis://redis:6379/0
-#     depends_on:
-#       - redis
-#       - web
-#     restart: always
-
-# volumes:
-#   pharma_redis_data:
+  pharma_redis_search_data: # Вечный диск под снапшоты поисковых индексов каталога

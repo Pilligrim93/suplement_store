@@ -1,7 +1,20 @@
 
 import redis
-from orders.services import REDIS_POOL
+from django.conf import settings
 
+# Создаем готовые соединения (socket_client_django tcp socket_server_redis)
+# REDIS_POOL = до 50 вечно работающих соединений - обслуживание запросов клиентов.
+REDIS_CART_POOL = redis.ConnectionPool(
+    host=getattr(settings, 'REDIS_HOST', 'redis'),      
+    port=getattr(settings, 'REDIS_PORT', 6379),
+    db=0,                           # номер бд 0/15
+    decode_responses=True,          # Декодирует байты в строку на выходе зи Redis
+    max_connections=50,             # Потолок открытых сокетов
+    socket_connect_timeout=2,       # Таймаут на установку связи
+    socket_timeout=5,               # Таймаут на выполнение команды
+    retry_on_timeout=True,          # Авто-повтор при микро-лагах сети
+    health_check_interval=30        # Пинг туннелей каждые 30 секунд для очистки мертвых сокетов
+)
 
 class CartService:
 
@@ -37,7 +50,7 @@ class CartService:
         Универсальный конструктор без связанности с request.
         Работает с ID юзера из Postgres или Guest Token из Cookie/Заголовков.
         """
-        self.redis_client = redis.Redis(connection_pool=REDIS_POOL)
+        self.redis_client = redis.Redis(connection_pool=REDIS_CART_POOL)
         self.ttl = 2592000  # 30 дней жизни корзины
 
         # Локальный внутризапросный кэш «вспышка»

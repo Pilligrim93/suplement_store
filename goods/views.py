@@ -89,3 +89,7 @@ def checkout(request):
 
 def thankyou(request):
     return render(request, "thankyou.html")
+
+
+
+

@@ -110,11 +110,7 @@ def remove_from_cart(request: HttpRequest):
         
 
 
-# Инфраструктура настроена под pool PgBouncer для postgresql дальше редактирование и написание логики goods/service
-# Разбор темы cache hash полей и html
-# Разбор goods/service
-# Не забудь про редактирвоание шаблонов части шаблонов больше чем их родители
-# Изменил инфраструктуру docker-compose и .env создал 3 инстанса redis вместо 1 нужно сделать рефакторинг carts/service логику и pool для redis_cart, goods/service 
+ 
 
 
 
