@@ -50,14 +50,14 @@ services:
   # =================================================================
   redis_search:
     image: redis/redis-stack-server:latest
-    container_name: pharma_redis_search
+    container_name: pharma_redis_catalog
     # СБАЛАНСИРОВАННАЯ ЗАЩИТА: Отключаем тяжелый AOF, оставляем только ленивый RDB-снапшот раз в 15 минут.
     # Автоудаление NOEVICTION: Паспорта каталога и поисковые индексы RediSearch должны лежать в памяти железно.
     command: redis-server --appendonly no --save 900 1 --maxmemory-policy noeviction
     ports:
       - "6382:6382"
     volumes:
-      - pharma_redis_search_data:/data
+      - pharma_redis_catalog_data:/data
     restart: always
 
   # =================================================================
@@ -98,7 +98,7 @@ services:
       - redis_cart
       - redis_html
       - redis_celery
-      - redis_search
+      - redis_catalog
       - pgbouncer
     restart: always
 
@@ -120,7 +120,7 @@ services:
       - redis_cart
       - redis_html
       - redis_celery
-      - redis_search
+      - redis_catalog
       - pgbouncer
       - web
     restart: always
@@ -128,4 +128,4 @@ services:
 volumes:
   pharma_redis_cart_data:
   pharma_redis_celery_data: # Создаю вечный диск под лог-файлы фоновых задач
-  pharma_redis_search_data: # Вечный диск под снапшоты поисковых индексов каталога
+  pharma_redis_catalog_data: # Вечный диск под снапшоты поисковых индексов каталога

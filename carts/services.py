@@ -1,20 +1,34 @@
-
+import os
 import redis
 from django.conf import settings
 
-# Создаем готовые соединения (socket_client_django tcp socket_server_redis)
-# REDIS_POOL = до 50 вечно работающих соединений - обслуживание запросов клиентов.
+# ОБЩИЕ HIGHLOAD-НАСТРОЙКИ ПУЛА В ОДИН СЛОВАРЬ
+# Чтобы не дублировать таймауты, проверки сокетов и автодекодирование строк
+REDIS_COMMON_CONFIG = {
+    "db": 0,                           # номер бд 0/15
+    "decode_responses": True,          # Декодирует байты в строку на выходе зи Redis
+    "max_connections": 50,             # Потолок открытых сокетов
+    "socket_connect_timeout": 2,       # Таймаут на установку связи
+    "socket_timeout": 5,               # Таймаут на выполнение команды
+    "retry_on_timeout": True,          # Авто-повтор при микро-лагах сети
+    "health_check_interval": 30        # Пинг туннелей каждые 30 секунд для очистки мертвых сокетов
+}
+
+# Pool к инстасу 1. Корзины, остатки атомарные транзакции, ключи.
 REDIS_CART_POOL = redis.ConnectionPool(
-    host=getattr(settings, 'REDIS_HOST', 'redis'),      
-    port=getattr(settings, 'REDIS_PORT', 6379),
-    db=0,                           # номер бд 0/15
-    decode_responses=True,          # Декодирует байты в строку на выходе зи Redis
-    max_connections=50,             # Потолок открытых сокетов
-    socket_connect_timeout=2,       # Таймаут на установку связи
-    socket_timeout=5,               # Таймаут на выполнение команды
-    retry_on_timeout=True,          # Авто-повтор при микро-лагах сети
-    health_check_interval=30        # Пинг туннелей каждые 30 секунд для очистки мертвых сокетов
+    host=os.getenv('REDIS_CART_HOST', 'redis_cart'),
+    port=int(os.getenv('REDIS_CART_PORT', '6379')),
+    **REDIS_COMMON_CONFIG       # Распаковываем те же идеальные тайминги для 4-го инстанса!  При распаковке вместо словаря будут именнованые аргументы
 )
+
+# Pool к инстасу 4. Cache catalog hash
+REDIS_CATALOG_POOL = redis.ConnectionPool(
+    host=os.getenv('REDIS_CATALOG_HOST', 'redis_catalog'),
+    port=int(os.getenv('REDIS_CATALOG_PORT', '6382')),
+    **REDIS_COMMON_CONFIG       # Распаковываем те же идеальные тайминги для 4-го инстанса!  При распаковке вместо словаря будут именнованые аргументы
+
+)
+
 
 class CartService:
 
@@ -50,7 +64,9 @@ class CartService:
         Универсальный конструктор без связанности с request.
         Работает с ID юзера из Postgres или Guest Token из Cookie/Заголовков.
         """
-        self.redis_client = redis.Redis(connection_pool=REDIS_CART_POOL)
+
+        self.redis_client_cart = redis.Redis(connection_pool=REDIS_CART_POOL)
+        self.redis_client_catalog = redis.Redis(connection_pool=REDIS_CATALOG_POOL)
         self.ttl = 2592000  # 30 дней жизни корзины
 
         # Локальный внутризапросный кэш «вспышка»
@@ -67,7 +83,7 @@ class CartService:
             )
 
         # Регистрируем наш Lua-скрипт в оперативной памяти Redis при старте сервиса 
-        self.lua_merge = self.redis_client.register_script(
+        self.lua_merge = self.redis_client_cart.register_script(
             self._LUA_MERGE_SCRIPT
         )
 
@@ -78,9 +94,9 @@ class CartService:
         if self._cached_items is not None:
             return self._cached_items
 
-        raw_cart = self.redis_client.hgetall(self.cart_key)
+        raw_cart = self.redis_client_cart.hgetall(self.cart_key)
         if not raw_cart:
-            # ВАЖНО специально задали значение [] если где то еще вызовут 
+            # ВАЖНО специально задал значение [] если где то еще вызовут 
             # этот метод то он не будет делать не какой запрос по socket а 
             # сразу из cached_items выдаст ответ пусто, нет лишних соединений.
             self._cached_items = []
@@ -89,7 +105,7 @@ class CartService:
         product_ids = list(raw_cart.keys())
 
         # Открываем pipeline для пакетного сбора данных каталога (защита от сетевых лагов)
-        pipe = self.redis_client.pipeline()
+        pipe = self.redis_client_catalog.pipeline()
         for p_id in product_ids:
             # Важно f"catalog:product:{p_id}" - целый ключ не поле.
             pipe.hmget(f"catalog:product:{p_id}", ["name", "price", "image"])
@@ -119,7 +135,7 @@ class CartService:
                     }
                 )
         # Обновляем время жизни корзины при активности
-        self.redis_client.expire(self.cart_key, self.ttl)
+        self.redis_client_cart.expire(self.cart_key, self.ttl)
         self._cached_items = enriched_items
         return self._cached_items
 
@@ -127,26 +143,26 @@ class CartService:
         """Атомарное изменение количества с проверкой существования товара в кэше каталога"""
         catalog_key = f"catalog:product:{product_id}"
 
-        if not self.redis_client.exists(catalog_key):
+        if not self.redis_client_catalog.exists(catalog_key):
             return False
 
         # Вернет остаток в корзине.
-        new_qty = self.redis_client.hincrby(self.cart_key, str(product_id), quantity)
+        new_qty = self.redis_client_cart.hincrby(self.cart_key, str(product_id), quantity)
 
         if new_qty <= 0:
-            self.redis_client.hdel(self.cart_key, str(product_id))
+            self.redis_client_cart.hdel(self.cart_key, str(product_id))
 
         # Обновляем время жизни корзины при активности
-        self.redis_client.expire(self.cart_key, self.ttl)
+        self.redis_client_cart.expire(self.cart_key, self.ttl)
         self._cached_items = None
         return True
 
     def remove_item(self, product_id: int) -> None:
         """Точечное моментальное удаление всей товарной позиции из Хэша"""
-        self.redis_client.hdel(self.cart_key, str(product_id))
+        self.redis_client_cart.hdel(self.cart_key, str(product_id))
         
         # Обновляем время жизни корзины при активности
-        self.redis_client.expire(self.cart_key, self.ttl)
+        self.redis_client_cart.expire(self.cart_key, self.ttl)
         self._cached_items = None
 
     def total_quantity(self) -> int:
@@ -159,7 +175,7 @@ class CartService:
 
     def clear(self) -> None:
         """Полное удаление ключа корзины клиента из ОП"""
-        self.redis_client.delete(self.cart_key)
+        self.redis_client_cart.delete(self.cart_key)
         self._cached_items = None
 
     def merge_guest_cart(self, guest_token: str) -> None:

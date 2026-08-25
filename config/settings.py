@@ -137,25 +137,52 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
+# ==============================================================================
+#  1. ПОДКЛЮЧЕНИЕ К СУБД ЧЕРЕЗ ЖИВОЙ ЩИТ PGBOUNCER (ПОРТ 6432)
+# ==============================================================================
 DATABASES = {
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.sqlite3',
-    #     'NAME': BASE_DIR / 'db.sqlite3',
 
-    # os.getenv будет подргружать из .env для 
-    # безопасности чтобы секретные данные не оказались в github
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME'), 
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT'),
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        
+        # Направляем сокеты на контейнер pgbouncer, а не на postgres напрямую!
+        "HOST": os.getenv("PGBOUNCER_HOST", "pgbouncer"),
+        
+        # ПОРТ ПУЛЕРА: Бьет строго в порт шлюза 6432
+        "PORT": int(os.getenv("PGBOUNCER_PORT", "6432")),
+        
+        "NAME": os.getenv("DB_NAME", "pharma_db"),
+        "USER": os.getenv("DB_USER", "pharma_admin"),
+        "PASSWORD": os.getenv("DB_PASSWORD", "secret_pass"),
+        
+        # ВНУТРЕННИЙ ПУЛ DJANGO (CONN_MAX_AGE):
+        # Удерживает сокеты к PgBouncer "горячими" 10 минут (600 секунд), исключая оверхед на TCP-handshake.
+        "CONN_MAX_AGE": 600,
+        
+        # НАСТРОЙКА СЕТЕВОГО СТЕКА ЯДРА LINUX (TCP KEEPALIVE)
+        # Выжигает мертвые "зомби-соединения" из ОП и страхует от сетевых лагов внутри Docker.
+        "OPTIONS": {
+            "connect_timeout": 5,       # Разрыв попытки через 5 секунд простоя, если пулер перегружен
+            "keepalives": 1,            # Включить нативную проверку пульса сокета на уровне ядра ОС
+            "keepalives_idle": 30,      # Пинг сокета пустым пакетом через каждые 30 секунд простоя
+            "keepalives_interval": 10,  # Интервал повторных пингов (каждые 10 секунд), если узел молчит 
+            "keepalives_count": 5,      # Жесткое закрытие трубы, если после 5 пингов пулер не ответил
+        }
     }
 }
+    
+
+    # # os.getenv будет подргружать из .env для 
+    # # безопасности чтобы секретные данные не оказались в github
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.postgresql',
+    #     'NAME': os.getenv('DB_NAME'), 
+    #     'USER': os.getenv('DB_USER'),
+    #     'PASSWORD': os.getenv('DB_PASSWORD'),
+    #     'HOST': os.getenv('DB_HOST'),
+    #     'PORT': os.getenv('DB_PORT'),
+    # }
+
 
 
 # Password validation
@@ -214,7 +241,49 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'users.User'
 
 
+  
 
-# os.getenv будет подргружать из .env  
-REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
-REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
+
+
+# ==============================================================================
+#  ХАЙЛОД-МАГИСТРАЛИ В ОПЕРАТИВНУЮ ПАМЯТЬ REDIS (4 ИЗОЛИРОВАННЫХ ИНСТАНСА)
+# ==============================================================================
+
+#  ИНСТАНС 1: СЕЙФ КОРЗИН И ОСТАТКОВ (Порт 6379)
+# Первичная истина для Lua-скриптов бронирования. Логирование изменений через Streams.
+# os.getenv будет подргружать из .env
+REDIS_CART_HOST = os.getenv('REDIS_CART_HOST', 'redis_cart')
+REDIS_CART_PORT = int(os.getenv('REDIS_CART_PORT', '6379'))
+
+#  ИНСТАНС 2: КЭШ ШАБЛОНОВ И ВЁРСТКИ HTML (Порт 6380)
+# Стандартный кэш-движок Django для Server-Side Rendering страниц каталога Pharma.
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"redis://{os.getenv('REDIS_HTML_HOST', 'redis_html')}:{os.getenv('REDIS_HTML_PORT', '6380')}/0",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "CONNECTION_POOL_KWARGS": {
+                "max_connections": 50,         # Жесткий потолок сокетов к кэшу вёрстки
+                "retry_on_timeout": True,      # Авто-повтор при микро-лагах сети Docker
+            },
+            "DECODE_RESPONSES": True,          # Строки выходят из кэша чистыми, а не байтами b''
+        }
+    }
+}
+
+# ИНСТАНС 3: БРОКЕР ФОНОВЫХ ОЧЕРЕДЕЙ CELERY (Порт 6381)
+# Сюда Django выстреливает таски переоценки батчами и 15-минутный контроль брони.
+CELERY_BROKER_URL = f"redis://{os.getenv('REDIS_CELERY_HOST', 'redis_celery')}:{os.getenv('REDIS_CELERY_PORT', '6381')}/0"
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+
+# --- НАСТРОЙКИ НАДЕЖНОСТИ КОНВЕЙЕРА ОЧЕРЕДЕЙ ---
+CELERY_TASK_ACKS_LATE = True                   # Задача стирается из ОП только ПОСЛЕ успешного выполнения Python-кода!
+CELERY_TASK_REJECT_ON_WORKER_LOST = True       # Если воркер убил Linux-процесс, таска мгновенно возвращается в очередь.
+CELERY_TASK_DEFAULT_RETRY_DELAY = 5            # Пауза в 5 секунд перед повтором при лаге СУБД или сети.
+CELERY_TASK_MAX_RETRIES = 3                    # Максимум 3 попытки на задачу, чтобы не забить очередь вечным циклом.
+
+# ИНСТАНС 4: ДВИЖОК КАТАЛОГА ТОВАРОВ И REDISEARCH (Порт 6382)
+# Сюда мои таски льют свойства товаров, и отсюда RediSearch мгновенно выгребает поиск на тысячи юзеров.
+REDIS_CATALOG_HOST = os.getenv('REDIS_CATALOG_HOST', 'redis_catalog')
+REDIS_CATALOG_PORT = int(os.getenv('REDIS_CATALOG_PORT', '6382'))
