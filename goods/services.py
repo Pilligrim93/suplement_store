@@ -80,4 +80,4 @@ class CatalogCacheService:
         return len(products)
 
 
-# Зарегистрировать redis инстасы и celery в config/settings
+# Наполтить наш кеш каталог товарами.
