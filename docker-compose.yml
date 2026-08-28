@@ -2,12 +2,12 @@ version: '3.8'
 
 services:
   # =================================================================
-  # ИНСТАНС 1: СЕЙФ БИЗНЕС-ДАННЫХ (Корзины, гостевые токены, ключи идемпотентности, первичные остатки и лог-потоки Streams)
+  # ИНСТАНС 1: Корзины, гостевые токены, ключи идемпотентности, первичные остатки и лог-потоки Streams
   # =================================================================
   redis_cart:
     image: redis:7.2-alpine
     container_name: pharma_redis_cart
-    # МАКСИМАЛЬНАЯ БРОНЯ: Жесткий секундный сброс AOF и ленивый RDB-снапшот.
+    # Жесткий секундный сброс AOF и ленивый RDB-снапшот.
     # Автоудаление NOEVICTION — Redis зубами держит корзины, остатки и лог-потоки Streams, защищая от OOM.
     command: redis-server --appendonly yes --appendfsync everysec --save 900 1 --maxmemory-policy noeviction
     ports:
@@ -23,7 +23,7 @@ services:
     image: redis:7.2-alpine
     container_name: pharma_redis_html
     # ТАКТИКА СКОРОСТИ: Диск полностью ОТКЛЮЧЕН (appendonly no, save ""). Запись на диск равна 0.
-    # Политика ALLKEYS-LRU: При нехватке ОЗУ Redis сам бесшумно выкинет старые забытые HTML-страницы.
+    # Политика ALLKEYS-LRU: При нехватке ОП Redis сам бесшумно выкинет старые забытые HTML-страницы.
     command: redis-server --appendonly no --save "" --maxmemory-policy allkeys-lru
     ports:
       - "6380:6380"
@@ -37,7 +37,7 @@ services:
     image: redis:7.2-alpine
     container_name: pharma_redis_celery
     # ЗАЩИТА ЗАДАЧ ОТ ПОТЕРЬ: Секундный AOF и ленивый RDB, чтобы финансовые задачи не стерлись при сбое питания.
-    # Автоудаление NOEVICTION: Задачи обязаны копиться в ОЗУ, пока воркеры их не пережерт. Стирать их нельзя!
+    # Автоудаление NOEVICTION: Задачи обязаны копиться в ОП, пока воркеры их не пережерт. Стирать их нельзя!
     command: redis-server --appendonly yes --appendfsync everysec --save 900 1 --maxmemory-policy noeviction
     ports:
       - "6381:6381"
@@ -61,7 +61,7 @@ services:
     restart: always
 
   # =================================================================
-  # ЖИВОЙ ЩИТ СУБД: ПУЛЕР СОКЕТОВ PGBOUNCER (Запирает SSH-туннель на хосте)
+  # ПУЛЕР СОКЕТОВ PGBOUNCER (Запирает SSH-туннель на хосте)
   # =================================================================
   pgbouncer:
     image: edoburu/pgbouncer:latest
