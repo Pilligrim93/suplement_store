@@ -93,3 +93,4 @@ def thankyou(request):
 
 
 
+# Рефакторинг goods/views и service 
