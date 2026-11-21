@@ -43,7 +43,7 @@
 ---
 
 ## 🛠️ Технологический стек
-* **Backend:** Python 3, FastAPI, Django, SQLAlchemy 2.0 Async, Pydantic, Celery, RabbitMQ
+* **Backend:** Python 3, FastAPI, Django, SQLAlchemy 2.0 Async, Pydantic, Celery
 * **Databases & Caching:** PostgreSQL, Redis (Streams, RediSearch, Lua scripting), PgBouncer
 * **DevOps & Infrastructure:** Docker, Docker Compose, Nginx, Bash (POSIX set -e entrypoints), SSH-туннелирование
 * **Testing & Monitoring:** Locust, Pytest
